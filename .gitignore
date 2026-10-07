@@ -1,0 +1,5 @@
+# Never commit survey data (child disability information)
+data.csv
+*.xlsx
+*.xls
+*.csv

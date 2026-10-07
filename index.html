@@ -1,0 +1,499 @@
+<title>NIKO Survey Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: navy brand band (logo, data source, load button), sticky filter row, tabbed grid of cards.
+   Palette: NIKO navy as chrome, logo sky blue as the data colour, logo orange as the one contrast series. */
+:root {
+  --bg: #eef3f9;
+  --surface: #ffffff;
+  --ink: #0b1b3a;
+  --ink-2: #4a5b78;
+  --ink-3: #6b7a94;
+  --line: #dbe3ef;
+  --navy: #052a6e;
+  --on-navy: #ffffff;
+  --bar: #2a9fd6;
+  --bar-soft: #cfe9f7;
+  --alt: #e8700f;
+  --alt-soft: #fbdcc3;
+  --warn-bg: #fff1cf;
+  --warn-ink: #6b4500;
+  --focus: #0b6fb8;
+  --font-display: "Nunito", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #061633; --surface: #0b2250; --ink: #eaf1fb; --ink-2: #aebcd8; --ink-3: #8b9bbb;
+    --line: #1c3768; --bar: #4cc0ee; --bar-soft: #17407a; --alt: #f08a35; --alt-soft: #5a3413;
+    --warn-bg: #4a3a0c; --warn-ink: #ffe29a; --focus: #7cd0f5; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #061633; --surface: #0b2250; --ink: #eaf1fb; --ink-2: #aebcd8; --ink-3: #8b9bbb;
+  --line: #1c3768; --bar: #4cc0ee; --bar-soft: #17407a; --alt: #f08a35; --alt-soft: #5a3413;
+  --warn-bg: #4a3a0c; --warn-ink: #ffe29a; --focus: #7cd0f5; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.band { background: var(--navy); color: var(--on-navy); padding-inline: 16px; padding-block: 14px; }
+.band-in { max-width: 1240px; margin-inline: auto; display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; justify-content: space-between; }
+.brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.brand img { height: 56px; width: auto; border-radius: 6px; display: block; }
+.brand h1 { font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1.15; margin: 0; text-wrap: balance; }
+.brand p { margin: 2px 0 0; font-size: 13px; opacity: .8; }
+.loader { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn { background: #fff; color: #052a6e; border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 600; cursor: pointer; }
+.btn.ghost { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.45); }
+.btn:hover { filter: brightness(.94); }
+.wrap { max-width: 1240px; margin-inline: auto; padding-inline: 16px; padding-block: 16px 40px; }
+.status { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 12px; color: var(--ink-2); }
+.pill { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; background: var(--bar-soft); color: var(--ink); }
+.pill.demo { background: var(--warn-bg); color: var(--warn-ink); }
+.drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 10px 14px; color: var(--ink-2); background: var(--surface); }
+.drop.over { border-color: var(--bar); background: var(--bar-soft); }
+.filters { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 8px; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+.filters label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--ink-2); font-weight: 500; }
+.filters select, .filters input { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; min-width: 130px; }
+.filters .count { margin-left: auto; font-size: 13px; color: var(--ink-2); }
+.tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; }
+.tab { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; cursor: pointer; white-space: nowrap; color: var(--ink-2); font-weight: 600; }
+.tab[aria-selected="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
+:root[data-theme="dark"] .tab[aria-selected="true"] { background: var(--bar); color: #04204f; border-color: var(--bar); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tab[aria-selected="true"] { background: var(--bar); color: #04204f; border-color: var(--bar); } }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.kpi b { display: block; font-family: var(--font-display); font-weight: 800; font-size: 28px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kpi span { display: block; font-size: 13px; color: var(--ink); margin-top: 3px; }
+.kpi small { display: block; color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 16px; min-width: 0; }
+.card.wide { grid-column: 1 / -1; }
+.card h3 { font-family: var(--font-display); font-weight: 700; font-size: 16px; margin: 0; line-height: 1.25; text-wrap: balance; }
+.card .meta { color: var(--ink-3); font-size: 12px; margin: 3px 0 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.link { background: none; border: 0; color: var(--ink-2); text-decoration: underline; cursor: pointer; padding: 0; font-size: 12px; }
+.rows { display: flex; flex-direction: column; gap: 8px; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+.row .l { min-width: 0; overflow-wrap: anywhere; }
+.row .v { font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: nowrap; }
+.row .t { grid-column: 1 / -1; height: 8px; background: var(--bar-soft); border-radius: 4px; overflow: hidden; }
+.row .t i { display: block; height: 100%; background: var(--bar); border-radius: 4px; }
+.empty { color: var(--ink-3); padding: 10px 0; }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-weight: 600; color: var(--ink-2); font-size: 12px; }
+td.num { text-align: right; white-space: nowrap; }
+.heat td.cell { min-width: 96px; text-align: right; background-repeat: no-repeat; background-size: 100% 100%; }
+.heat td.cell.alt { }
+.heat td:first-child, .heat th:first-child { min-width: 190px; }
+.svgwrap { width: 100%; }
+.svgwrap svg { width: 100%; height: auto; display: block; }
+.axis-text { fill: var(--ink-3); font-size: 11px; font-family: var(--font-body); }
+.readout { font-size: 13px; color: var(--ink-2); min-height: 20px; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+details.dq { margin-top: 22px; color: var(--ink-2); }
+details.dq summary { cursor: pointer; font-weight: 600; }
+details.dq p { max-width: 80ch; }
+.note { color: var(--ink-3); font-size: 12px; margin-top: 18px; max-width: 90ch; }
+</style>
+
+<div class="band"><div class="band-in">
+  <div class="brand">
+    <img src="data:image/png;base64,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" alt="NIKO logo" width="120" height="56">
+    <div><h1>Caregiver and Child Survey</h1><p>NIKO Phase Two, Kisumu County</p></div>
+  </div>
+  <div class="loader">
+    <input type="file" id="file" accept=".csv,.xlsx,.xls" hidden>
+    <button class="btn" id="pick" type="button">Load Inform export</button>
+    <button class="btn ghost" id="demo" type="button">Show demo data</button>
+  </div>
+</div></div>
+
+<div class="wrap">
+  <div class="status" id="status"></div>
+  <div class="drop" id="drop">Drop an Inform export (.csv or .xlsx) here. The file is read in your browser and is not uploaded anywhere.</div>
+  <div style="height:12px"></div>
+  <div class="filters" id="filters">
+    <label>Sub-county<select id="f-sub"></select></label>
+    <label>Ward<select id="f-ward"></select></label>
+    <label>Child sex<select id="f-sex"></select></label>
+    <label>Child age<select id="f-age"></select></label>
+    <label>From<input type="date" id="f-from"></label>
+    <label>To<input type="date" id="f-to"></label>
+    <button class="link" id="reset" type="button">Reset filters</button>
+    <div class="count" id="count" aria-live="polite"></div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="grid" id="grid"></div>
+  <details class="dq" id="dq"><summary>Data check</summary><div id="dq-body"></div></details>
+  <p class="note">Percentages use the number of respondents who were asked each question as the denominator, so skip patterns do not dilute results. Names, ID numbers and phone numbers in the export are never read or shown.</p>
+</div>
+
+<script>
+const SPEC = {"fields":{"enumerator_name":{"k":"1","l":"enumerator"},"consent":{"k":"1","l":"yes_no"},"county":{"k":"1","l":"county"},"sub_county":{"k":"1","l":"sub_county"},"ward":{"k":"1","l":"ward"},"q11_caregiver_sex":{"k":"1","l":"sex"},"q13_head_of_household":{"k":"1","l":"yes_no"},"q14_relationship":{"k":"1","l":"relationship"},"q16_caregiver_attended_school":{"k":"1","l":"yes_no"},"q17_caregiver_highest_grade":{"k":"1","l":"grade"},"q18_has_phone":{"k":"1","l":"yes_no"},"q19_no_phone_why":{"k":"1","l":"no_phone_why"},"q20_smartphone":{"k":"1","l":"yes_no"},"gov_programme":{"k":"m","l":"gov_programme"},"nongov_programme":{"k":"1","l":"yes_no"},"main_activity_7d":{"k":"1","l":"main_activity"},"econ_engaged":{"k":"1","l":"yes_no"},"econ_activity":{"k":"1","l":"econ_activity"},"econ_interested":{"k":"1","l":"yes_no"},"reduced_income":{"k":"1","l":"yes_no"},"care_support_needed":{"k":"m","l":"care_support"},"fin_support_type":{"k":"1","l":"fin_support"},"support_group":{"k":"1","l":"yes_no"},"support_group_type":{"k":"1","l":"group_type"},"q23_child_sex":{"k":"1","l":"sex"},"q25_identified_by":{"k":"1","l":"identified_by"},"q26_age_identified":{"k":"1","l":"age_identified"},"q27_attending_school":{"k":"1","l":"yes_no"},"q27_no_school_why":{"k":"1","l":"no_school_why"},"q28_earc_assessed":{"k":"1","l":"yes_no"},"q29_school_level":{"k":"1","l":"school_level"},"q30_school_type":{"k":"1","l":"school_type"},"q31_has_talent":{"k":"1","l":"yes_no"},"q32_talents":{"k":"m","l":"talent"},"q34_in_sports_group":{"k":"1","l":"yes_no"},"q38_registered_ncpwd":{"k":"1","l":"yes_no"},"q37_has_certificate":{"k":"1","l":"yes_no"},"q39_cert_category":{"k":"m","l":"dis_category"},"q41_cert_disability":{"k":"m","l":"disability"},"q43_cert_uses":{"k":"m","l":"cert_use"},"q44a_not_registered_why":{"k":"m","l":"not_registered_why"},"q45_assessment_support":{"k":"m","l":"assess_improve"},"q46_comm_improve":{"k":"m","l":"comm_improve"},"q47_welfare_clinic":{"k":"1","l":"yes_no"},"q47_no_clinic_why":{"k":"1","l":"no_clinic_why"},"q48_milestones_discussed":{"k":"1","l":"yes_no"},"q52_eating":{"k":"1","l":"adl"},"q54_washing":{"k":"1","l":"adl"},"q55_dressing":{"k":"1","l":"adl"},"q56_toilet":{"k":"1","l":"adl"},"q57_moving_house":{"k":"1","l":"adl"},"q58_outside_house":{"k":"1","l":"adl"},"q59_transport":{"k":"1","l":"adl"},"q60_shopping":{"k":"1","l":"adl"},"q61_water":{"k":"1","l":"adl"},"q63_education_access":{"k":"1","l":"adl"},"q65_communicating":{"k":"1","l":"adl"},"q66_caring_family":{"k":"1","l":"adl"},"q68_community":{"k":"1","l":"adl"},"q69_has_at":{"k":"1","l":"yes_no"},"q70_at_have":{"k":"m","l":"at_device"},"q70_at_state":{"k":"1","l":"at_state"},"q70_1_needs_at":{"k":"1","l":"yes_no_dk"},"q70_2_at_needed":{"k":"m","l":"at_device"},"q71_at_challenges":{"k":"m","l":"at_challenge"},"q72_at_payer":{"k":"m","l":"at_payer"},"q73_at_cost":{"k":"1","l":"at_cost"},"q74_extra_help":{"k":"m","l":"extra_help"},"env_transport_freq":{"k":"1","l":"env_freq5"},"env_transport_impact":{"k":"1","l":"env_impact3"},"env_natural_freq":{"k":"1","l":"env_freq5"},"env_natural_impact":{"k":"1","l":"env_impact3"},"env_info_freq":{"k":"1","l":"env_freq5"},"env_info_impact":{"k":"1","l":"env_impact6"},"env_att_home_freq":{"k":"1","l":"env_freq4"},"env_att_home_impact":{"k":"1","l":"env_impact3"},"env_att_school_freq":{"k":"1","l":"env_freq4"},"env_att_community_freq":{"k":"1","l":"env_freq4"}},"choices":{"enumerator":{"enum01":"Enumerator 01 (placeholder - replace with name)","enum02":"Enumerator 02 (placeholder - replace with name)","enum03":"Enumerator 03 (placeholder - replace with name)","enum04":"Enumerator 04 (placeholder - replace with name)","enum05":"Enumerator 05 (placeholder - replace with name)","enum06":"Enumerator 06 (placeholder - replace with name)","enum07":"Enumerator 07 (placeholder - replace with name)","enum08":"Enumerator 08 (placeholder - replace with name)","enum09":"Enumerator 09 (placeholder - replace with name)","enum10":"Enumerator 10 (placeholder - replace with name)","enum11":"Enumerator 11 (placeholder - replace with name)","enum12":"Enumerator 12 (placeholder - replace with name)","enum13":"Enumerator 13 (placeholder - replace with name)","enum14":"Enumerator 14 (placeholder - replace with name)","enum15":"Enumerator 15 (placeholder - replace with name)","enum16":"Enumerator 16 (placeholder - replace with name)","enum17":"Enumerator 17 (placeholder - replace with name)","enum18":"Enumerator 18 (placeholder - replace with name)","enum19":"Enumerator 19 (placeholder - replace with name)","enum20":"Enumerator 20 (placeholder - replace with name)"},"county":{"001":"Mombasa","002":"Kwale","003":"Kilifi","004":"Tana River","005":"Lamu","006":"Taita-Taveta","007":"Garissa","008":"Wajir","009":"Mandera","010":"Marsabit","011":"Isiolo","012":"Meru","013":"Tharaka-Nithi","014":"Embu","015":"Kitui","016":"Machakos","017":"Makueni","018":"Nyandarua","019":"Nyeri","020":"Kirinyaga","021":"Murang'a","022":"Kiambu","023":"Turkana","024":"West Pokot","025":"Samburu","026":"Trans Nzoia","027":"Uasin Gishu","028":"Elgeyo-Marakwet","029":"Nandi","030":"Baringo","031":"Laikipia","032":"Nakuru","033":"Narok","034":"Kajiado","035":"Kericho","036":"Bomet","037":"Kakamega","038":"Vihiga","039":"Bungoma","040":"Busia","041":"Siaya","042":"Kisumu","043":"Homa Bay","044":"Migori","045":"Kisii","046":"Nyamira","047":"Nairobi"},"sub_county":{"kisumu_east":"Kisumu East","kisumu_west":"Kisumu West","kisumu_central":"Kisumu Central","seme":"Seme","nyando":"Nyando","muhoroni":"Muhoroni","nyakach":"Nyakach"},"ward":{"kisumu_east_1":"Kajulu","kisumu_east_2":"Kolwa East","kisumu_east_3":"Manyatta 'B'","kisumu_east_4":"Nyalenda 'A'","kisumu_east_5":"Kolwa Central","kisumu_west_1":"South West Kisumu","kisumu_west_2":"Central Kisumu","kisumu_west_3":"Kisumu North","kisumu_west_4":"West Kisumu","kisumu_west_5":"North West Kisumu","kisumu_central_1":"Railways","kisumu_central_2":"Migosi","kisumu_central_3":"Shaurimoyo Kaloleni","kisumu_central_4":"Market Milimani","kisumu_central_5":"Kondele","kisumu_central_6":"Nyalenda 'B'","seme_1":"West Seme","seme_2":"Central Seme","seme_3":"East Seme","seme_4":"North Seme","nyando_1":"East Kano","nyando_2":"Awasi/Onjiko","nyando_3":"Ahero","nyando_4":"Kabonyo/Kanyagwal","nyando_5":"Kobura","muhoroni_1":"Miwani","muhoroni_2":"Ombeyi","muhoroni_3":"Masogo/Nyang'oma","muhoroni_4":"Chemelil/Muhoroni","muhoroni_5":"Koru","nyakach_1":"South East Nyakach","nyakach_2":"West Nyakach","nyakach_3":"North Nyakach","nyakach_4":"Central Nyakach","nyakach_5":"South West Nyakach"},"yes_no":{"yes":"Yes","no":"No"},"yes_no_dk":{"yes":"Yes","no":"No","dk":"I don't know"},"sex":{"male":"Male","female":"Female","intersex":"Inter-sex"},"relationship":{"1":"Sibling","2":"Father/Mother","3":"Niece/Nephew","4":"Grandparent","5":"Other relative","6":"Non-relative"},"grade":{"1":"Not Stated/Don't know","2":"Standard/Grade 1","3":"Standard/Grade 2","4":"Standard/Grade 3","5":"Standard/Grade 4","6":"Standard/Grade 5","7":"Standard/Grade 6","8":"Standard/Grade 7","9":"Standard/Grade 8","10":"Form 1/Grade 9","11":"Form 2/Grade 10","12":"Form 3/Grade 11","13":"Form 4/Grade 12","14":"Form 5","15":"Form 6","16":"Diploma/Certificate Year 1","17":"Diploma/Certificate Year 2","18":"Diploma Year 3","19":"Higher National Diploma","20":"Undergraduate Year 1","21":"Undergraduate Year 2","22":"Undergraduate Year 3","23":"Undergraduate Year 4","24":"Undergraduate Year 5","25":"Undergraduate Year 6","26":"Masters Year 1","27":"Masters Year 2","28":"Phd Year 1","29":"Phd Year 2","30":"Phd Year 3","31":"Adult Basic Education","32":"Adult Secondary Education","33":"Special School","34":"Vocational Training Year 1","35":"Vocational Training Year 2","36":"Madrassa/Duksis"},"no_phone_why":{"1":"Lack of funds to purchase","2":"Not interested","3":"Fear of technology","4":"Too young","5":"Too old","6":"Restricted by spouse","7":"Use for my spouse","8":"Use for my child","9":"Use for my neighbours","10":"Use for other relatives","11":"Was stolen"},"gov_programme":{"1":"Older Persons Cash Transfer","2":"Persons with Severe Disabilities Cash Transfer","3":"Orphans and Vulnerable Children Cash Transfer","4":"Economic Inclusion Programme","5":"Bursaries (MoE and NCPWD)","6":"Nutrition Improvement through Cash and Health Education (NICHE)","7":"Tools of Trade (NCPWD and NFDK)","8":"Grants","9":"Assistive Technologies (NCPWD, NFDK and Kisumu County Government)","10":"Medication (NCPWD)","other":"Other","none":"None of the above"},"main_activity":{"1":"Worked for pay","2":"Worked on own/family business","3":"Worked on own/family agricultural holding","4":"Apprentice - paid","5":"Apprentice - unpaid","6":"Intern - paid","7":"Intern - unpaid","8":"Volunteer - paid","9":"Volunteer - unpaid","10":"Future starter (not currently working but has already secured a job and is waiting to start within a short, specified timeframe)","11":"Seeking work - action taken","12":"Seeking work - action not taken","13":"No work available","14":"Retired","15":"Too old to work","16":"Home maker","17":"Full time student","18":"Incapacitated","19":"Too young to work","20":"Not stated"},"econ_activity":{"1":"Fish farming","2":"Crop farming (rice, sugarcane etc.)","3":"Cattle rearing","4":"Poultry keeping","5":"M-Pesa trading","6":"Bee keeping","7":"Hairdressing","8":"Welding","9":"ICT","10":"Retail shop","other":"Others (specify)"},"care_support":{"1":"Respite care","2":"Financial support","3":"Support networks","4":"Skills development","5":"Psychosocial support","6":"Mobility support","7":"Tax exemption","8":"Extended retirement age","9":"Flexible working hours"},"fin_support":{"1":"Individual loan","2":"Group loan","3":"Seed capitation","4":"Tools of trade","5":"Start-up capital"},"group_type":{"1":"Self Help Group (SHG)","2":"Community Based Organization (CBO)","3":"Faith Based Organization (FBO)","4":"Psychosocial support group","5":"Disabled Persons Organization (DPO)","other":"Any other (specify)"},"identified_by":{"1":"By a healthcare provider","2":"Through school screening","3":"Self-assessment at home","4":"Through community outreach programme","other":"Other (please explain)"},"age_identified":{"1":"At birth","2":"0-2 years","3":"2-4 years","4":"4-5 years","5":"6-13 years","6":"14-17 years","7":"18-23 years"},"no_school_why":{"1":"Financial constraints","2":"Lack of assistive device","3":"Lack of support person/aide","4":"Inaccessible learning institution","5":"Severe disability","6":"Stigma & discrimination","7":"Lack of special school"},"school_level":{"1":"Baby Class/Kindergarten 1","2":"Nursery/Kindergarten 2","3":"Pre-Unit/Kindergarten 3","4":"Standard/Grade 1","5":"Standard/Grade 2","6":"Standard/Grade 3","7":"Standard/Grade 4","8":"Standard/Grade 5","9":"Standard/Grade 6","10":"Standard/Grade 7","11":"Standard/Grade 8","12":"Form 1/Grade 9","13":"Form 2/Grade 10","14":"Form 3/Grade 11","15":"Form 4/Grade 12"},"school_type":{"1":"Special school","2":"Regular school","3":"Integrated school","4":"Inclusive school"},"talent":{"painting":"Painting","drawing":"Drawing","singing":"Singing","acting":"Acting","sports":"Sports","handicrafts":"Handicrafts (beading, pottery, weaving)","cooking":"Cooking","other":"Other (specify)"},"dis_category":{"visual":"Visual impairment","hearing":"Hearing impairment","physical":"Physical","speech":"Speech, language, communication","chronic":"Chronic progressive disorders","maxillofacial":"Maxillofacial disabilities","mental":"Mental, intellectual and autism spectrum","others":"Others"},"disability":{"6":"SEVERE VISUAL IMPAIRMENT","7":"BLIND","8":"GRADE 0 -NORMAL HEARING","9":"GRADE 1- SLIGHT ( MILD)","10":"GRADE 3 - SEVERE","11":"GRADE 4 - PROFOUND","12":"DEAF/ABLE TO TALK NORMALLY","13":"DEAF/USING SIGN LANGUAGE","14":"POLIO","15":"PARAPLEGIA","16":"SCOLIOSIS, KYPHOSIS","17":"AMELIA","18":"ACQUIRED BRAIN INJURIES","19":"CEREBRAL PALSY","20":"CONGENITAL HIP DISLOCATION","21":"ERB'S PALSY","22":"HEMIPLEGIA","23":"HYDROCEPHALUS","24":"KLUMPKE'S PALSY","25":"MONOPLEGIA","26":"AMPUTATION","27":"ARTHRITIS","28":"ATHROGRYPOSIS","29":"ANKYLOSINGSPONDYLOSIS","30":"CONGENITAL DEFORMITIES","31":"SHORT STATURE","32":"FREEMAN SHELDOM SYDROME","33":"KYPHOSCOLIOSIS","34":"OSTEOGENESISIMPERFECTA","35":"QUADRIPLEGIA","36":"SPINA BIFIDA","37":"CONTRACTURES","38":"PERMANENT COLOSTOMY","39":"GIGANTISM","40":"ANISOMELIA (SHORT LEG)","41":"OEDEMA","42":"LUMBAR DEGENERATIVE DISC DISEASE (DDD)","43":"SPONDYLOLISTHESIS","44":"MICROCEPHALY","45":"LIMB SHORTENING","46":"PERIPHERAL NEUROPATHY","47":"TALIPES - CLUB FOOT","48":"OSTEOMYELITIS","49":"CONGENITAL TALIPES EQUINOVARUS (CTEV)","50":"PARAPARESIS","51":"WINGED SCAPULA","52":"PARRY-ROMBERG SYNDROME","53":"FOOT DROP","54":"DYSPHAGIA STAGE 3- PHARYNGEAL","55":"DYSPHAGIA STAGE 4- OESOPHAGEAL","56":"DEVELOPMENTAL LANGUAGE DISORDER","57":"DYSARTHRIA","58":"APRAXIA OR VERBAL DYSPRAXIA","59":"CONGENITAL LANGUAGE DISORDER","60":"APHASIA","61":"STAMMERING","62":"DYSPHAGIA STAGE 1- PRE-ORAL","63":"DYSPHAGIA STAGE 2- ORAL","64":"DYSFLUENCY - STUMMERING","65":"CLUTTERING","66":"ARTICULATION","67":"LANGUAGE DISORDERS","68":"COMMUNICATION IMPAIRMENT","69":"DYSPHAGIA","70":"CHRONIC PROGRESSIVE DISORDERS","71":"MULTIPLE SCLEROSIS","72":"HEREDITARY NEUROPATHY","73":"EPILEPSY","74":"INCLUSION TYPE MYOSITIS","75":"HUNTINGTON'S DISEASE MOTOR","76":"FRIEDREICH'S ATAXIA","77":"SPINOCEREBELLAR DEGENERATION","78":"COMA AND PERSISTANT VEGETATIVE STATE","79":"CHRONIC FATIGUE SYDROME","80":"STROKE","81":"BRAIN TUMORS","82":"SPINAL CORD INJURY","83":"ARACHNOIDITIS","84":"HAEMATOLOGICAL E.G LEUKEMIA","85":"SOLID ORGANS","86":"BONE/SOFT TISSUE TUMORS RESULTING IN AMPUTATION","87":"HEAD AND NECK TUMORS","88":"SEVERE OSTEOATHRITIS","89":"COPD","90":"CHRONIC ISCHEMIC HEART DISEASE","91":"CARDIOMYOPATHY","92":"CYSTIC FIBRIOSIS","93":"RHEUMATIC HEART DISEASE","94":"SYMPTOMATIC CONGENITAL HEART DISEASE","95":"FIBROMYALGIA","96":"MUSCULAR DYSTROPHY","97":"ASSOCIATION OF LYMPHEDEMA AND MASTECTOMY","98":"MASTECTOMY","99":"HYDRADENITISSSUPURATIVA","100":"SCLERODERMA","101":"LYMPHEDEMA","102":"INFLAMMATORY BOWER DISEASES","103":"LIVER CIRRHOSIS","104":"CHRONIC PANCREATIC","105":"PARKINSON'S","106":"ALS { AMYOTROPHIC LATERAL SCLEROSIS }","107":"DEMENTIA","108":"VITILIGO","109":"SEVERE SYSTEMIC LUPUS ERYTHEMATOSUS","110":"RHEUMATOID ARTHRITIS","111":"REITER'S SYDROME","112":"POLYMYOSITIS","113":"PSORIASIS","114":"ALBINISM","115":"BOWEL AND BLADDER INCONTINENCE","116":"TOTAL JAW RESORPTION","117":"MICROGNATHIA (COMPLETE IMPAIRMENT)","118":"MICROGNATHIA (UNILATERAL OR BILATERAL IMPAIRMENT)","119":"TEMPORAL- MANDIBULAR JOINT ANKYLOSIS","120":"AGEUSIA","121":"BELL'S PALSY AND OTHER MOTOR NERVE DEFECTS","122":"SALIVARY GLANDS DISORDERS","123":"CLEFT LIP AND PALATE","124":"TOTAL ANODONTIA","125":"LOSS OF JAWS","126":"IMPAIRMENTS AFFECTING NERVES","127":"LOSS/MISSING SOFT TISSUE","128":"FACIAL PAINS AND SYNDROME","129":"XEROSTOMIA","130":"TRIMUS","131":"INTELLECTUAL DISABIILITY","132":"ATTENTION DEFICIT HYPERACTIVITY DISORDER","133":"SPECIFIC LEARNING DISORDER","134":"NEURO - DEVELOPMENTAL DISORDERS","135":"SCHIZOPHRENIA SPECTRUM AND OTHER PSYCHOTIC DISORDERS","136":"BIPOLAR AND RELATED DISORDERS","137":"DEPRESSIVE DISORDERS","138":"ANXIETY DISORDER","139":"DOWN SYNDROME","140":"AUTISM SPECTRUM DISORDER (ASD)","141":"DYSLEXIA","142":"TRAUMA AND STRESS RELATED DISORDERS","143":"SOMATIC SYMPTOMS AND RELATED DISORDERS","144":"Others"},"cert_use":{"1":"Tax exemption","2":"Assistive devices","3":"Education bursary/scholarship","4":"Tools of trade","5":"Access to affirmative action programmes","other":"Others"},"not_registered_why":{"1":"Lack of information","2":"Inaccessible information","3":"Cost involved","4":"Access to assessment facilities","5":"Delays in approvals","6":"Lack of support","7":"Process too complicated to carry out","8":"Difficult to obtain required documentation","9":"Not interested","other":"Others (specify)"},"assess_improve":{"1":"Awareness and sensitization on the process","2":"Outreach assessment places","3":"Free assessment","4":"One-stop shop for assessment","other":"Other (specify)"},"comm_improve":{"1":"Training of caregivers","2":"Accessible information","3":"Pre-assessment preparation of the caregivers","4":"Intensive public awareness","5":"Improved channels of communication (posters)","6":"Follow up","other":"Others (specify)"},"no_clinic_why":{"1":"Lack of information","2":"Inaccessible information","3":"Cost involved","4":"Access to the facilities","other":"Other (specify)"},"adl":{"1":"Can do alone without assistive product","2":"Can do alone but with assistive technology product","3":"Can only do with someone's assistance","4":"Can't do even with assistance"},"at_device":{"1":"Alarm signallers with light/sound/vibration","2":"Audioplayers with DAISY capability","3":"Braille displays (note takers)","4":"Braille writing equipment/broilers","5":"Canes/sticks","6":"Chairs for shower/ bath/toilet","7":"Closed captioning displays","8":"Club foot braces","9":"Communication boards/books/cards","10":"Communication software","11":"Crutches, axillary/ elbow","12":"Deafblind communicators","13":"Incontinence products, absorbent","14":"Gesture to voice technology","15":"Hand rails/grab bars","16":"Hearing aids (digital) and batteries","17":"Hearing loops/FM systems","18":"Magnifiers, digital hand-held","19":"Magnifiers, optical","20":"Orthoses, lower limb","21":"Orthoses, spinal","22":"Orthoses, upper limb","23":"Personal digital assistant (PDA)","24":"Pill organizers","25":"Pressure relief cushions","26":"Pressure relief mattresses","27":"Prostheses, lower limb","28":"Ramps, portable","29":"Recorders","30":"Rollators","31":"Screen readers","32":"Spectacles","33":"Walking frames/ walkers","34":"Standing frames, adjustable","35":"Therapeutic footwear","36":"Tricycles","37":"Video communication devices","38":"Watches, talking/ touching","39":"Wheelchairs, manual for active use","40":"Wheelchairs, manual assistant-controlled","41":"Wheelchairs, manual with postural support","42":"Wheelchairs, electrically powered","43":"White canes"},"at_state":{"1":"New/good condition","2":"Bad condition","3":"Unusable","4":"Outgrown"},"at_challenge":{"1":"High cost","2":"Limited availability","3":"Lack of information on available technologies","4":"Difficulty in obtaining the right fit or customization","5":"Stigma or discrimination","other":"Other (specify)"},"at_payer":{"1":"Self","2":"Parent","3":"Grandparent","4":"Brother or sister","5":"Other relative","6":"Friend","7":"NGO or charity","8":"Government","9":"Private sector","10":"Guardian","11":"I don't know","other":"Other"},"at_cost":{"1":"Below 1,000","2":"1,000 - 5,000","3":"5,001 - 10,000","4":"10,001 - 20,000","5":"20,001 - 30,000","6":"30,001 - 40,000","7":"Above 40,000","8":"Don't know"},"extra_help":{"none":"None","1":"Modifications to the house","2":"More accessible roads or sidewalks","3":"More accessible transportation","4":"Better health care","5":"Rehabilitation services","6":"Psychosocial counselling","other":"Other (specify)"},"env_freq5":{"1":"Every day","2":"Once a week/Weekly","3":"Once a month/Monthly","4":"Never","5":"Not applicable"},"env_freq4":{"1":"Every day","2":"Once a week/Weekly","3":"Once a month/Monthly","4":"Never"},"env_impact3":{"1":"Mildly","2":"Moderately","3":"Severely"},"env_impact6":{"1":"A lot","2":"A little","3":"Not at all","4":"Mildly","5":"Moderately","6":"Severely"}},"disCat":{"6":["visual"],"7":["visual"],"8":["hearing"],"9":["hearing"],"10":["hearing"],"11":["hearing"],"12":["hearing"],"13":["hearing"],"14":["physical"],"15":["physical"],"16":["physical"],"17":["physical"],"18":["physical"],"19":["physical"],"20":["physical"],"21":["physical"],"22":["physical"],"23":["physical"],"24":["physical"],"25":["physical"],"26":["physical"],"27":["physical"],"28":["physical"],"29":["physical"],"30":["physical"],"31":["physical"],"32":["physical"],"33":["physical"],"34":["physical"],"35":["physical"],"36":["physical"],"37":["physical"],"38":["physical"],"39":["physical"],"40":["physical"],"41":["physical"],"42":["physical"],"43":["physical"],"44":["physical"],"45":["physical"],"46":["physical"],"47":["physical"],"48":["physical"],"49":["physical"],"50":["physical"],"51":["physical"],"52":["physical"],"53":["physical"],"54":["speech"],"55":["speech"],"56":["speech"],"57":["speech"],"58":["speech"],"59":["speech"],"60":["speech"],"61":["speech"],"62":["speech"],"63":["speech"],"64":["speech"],"65":["speech"],"66":["speech"],"67":["speech"],"68":["speech"],"69":["speech"],"70":["chronic"],"71":["physical","chronic"],"72":["chronic"],"73":["chronic"],"74":["chronic"],"75":["chronic"],"76":["chronic"],"77":["chronic"],"78":["chronic"],"79":["chronic"],"80":["chronic"],"81":["chronic"],"82":["physical","chronic"],"83":["chronic"],"84":["chronic"],"85":["chronic"],"86":["chronic"],"87":["chronic"],"88":["chronic"],"89":["chronic"],"90":["chronic"],"91":["chronic"],"92":["chronic"],"93":["chronic"],"94":["chronic"],"95":["chronic"],"96":["physical","chronic"],"97":["chronic"],"98":["chronic"],"99":["chronic"],"100":["chronic"],"101":["chronic"],"102":["chronic"],"103":["chronic"],"104":["chronic"],"105":["chronic"],"106":["chronic"],"107":["chronic"],"108":["chronic"],"109":["chronic"],"110":["chronic"],"111":["chronic"],"112":["chronic"],"113":["chronic"],"114":["chronic"],"115":["chronic"],"116":["maxillofacial"],"117":["maxillofacial"],"118":["maxillofacial"],"119":["maxillofacial"],"120":["maxillofacial"],"121":["maxillofacial"],"122":["maxillofacial"],"123":["maxillofacial"],"124":["maxillofacial"],"125":["maxillofacial"],"126":["maxillofacial"],"127":["maxillofacial"],"128":["maxillofacial"],"129":["maxillofacial"],"130":["maxillofacial"],"131":["mental"],"132":["mental"],"133":["mental"],"134":["mental"],"135":["mental"],"136":["mental"],"137":["mental"],"138":["mental"],"139":["mental"],"140":["mental"],"141":["mental"],"142":["mental"],"143":["mental"],"144":["all"]}};
+const F = SPEC.fields, CH = SPEC.choices;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const lab = (l, c) => (CH[l] && CH[l][c] !== undefined ? CH[l][c] : c);
+const fl = (f, c) => lab(F[f].l, c);
+
+/* ---------- normalising an export row ---------- */
+const isTrue = (v) => v === 1 || v === true || /^(1|true|yes)$/i.test(String(v).trim());
+function codeOf(list, v) {
+  if (v === null || v === undefined) return "";
+  v = String(v).trim();
+  if (!v) return "";
+  const m = CH[list]; if (!m) return v;
+  if (v in m) return v;
+  const lv = v.toLowerCase();
+  for (const k in m) if (m[k].toLowerCase() === lv) return k;
+  return v;
+}
+function parseMulti(list, v) {
+  if (v === null || v === undefined || String(v).trim() === "") return [];
+  v = String(v).trim();
+  const m = CH[list] || {};
+  const toks = v.split(/\s+/);
+  if (toks.every((t) => t in m)) return toks;
+  return v.split(/[;,]\s*/).map((t) => codeOf(list, t)).filter(Boolean);
+}
+const num = (v) => { if (v === "" || v === null || v === undefined) return null; const n = Number(v); return isFinite(n) ? n : null; };
+function toDate(v) {
+  if (v instanceof Date && !isNaN(v)) return v;
+  if (typeof v === "number" && v > 20000 && v < 80000) return new Date(Math.round((v - 25569) * 86400000));
+  if (typeof v === "string" && v.trim()) { const d = new Date(v.trim().slice(0, 10)); if (!isNaN(d)) return d; }
+  return null;
+}
+const dkey = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+function normRow(raw) {
+  const flat = {}, exp = {};
+  for (const k of Object.keys(raw)) {
+    const parts = k.split("/"), last = parts[parts.length - 1].trim(), val = raw[k];
+    if (parts.length > 1) {
+      const parent = parts[parts.length - 2].trim();
+      if (F[parent] && F[parent].k === "m" && last !== parent) { if (isTrue(val)) (exp[parent] = exp[parent] || []).push(last); continue; }
+    }
+    if (!(last in flat) || flat[last] === "" || flat[last] == null) flat[last] = val;
+  }
+  const rec = {};
+  for (const f in F) {
+    const d = F[f];
+    rec[f] = d.k === "1" ? codeOf(d.l, flat[f]) : (exp[f] ? exp[f].map((c) => codeOf(d.l, c)) : parseMulti(d.l, flat[f]));
+  }
+  rec.date = toDate(flat.interview_date) || toDate(flat.today) || toDate(flat._submission_time);
+  let age = num(flat.child_age);
+  if (age === null) { const dob = toDate(flat.q24_child_dob); if (dob) age = Math.floor(((rec.date || new Date()) - dob) / 31557600000); }
+  rec.age = age;
+  rec.cgAge = num(flat.q12_caregiver_age);
+  rec.sub = rec.sub_county;
+  return rec;
+}
+
+/* ---------- demo data (synthetic, follows the form's skip logic) ---------- */
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function makeDemo(n) {
+  const r = mulberry(20261007);
+  const pick = (a) => a[Math.floor(r() * a.length)];
+  const wp = (pairs) => { let t = pairs.reduce((s, p) => s + p[1], 0), x = r() * t; for (const [v, w] of pairs) { if ((x -= w) < 0) return v; } return pairs[0][0]; };
+  const keys = (l) => Object.keys(CH[l]);
+  const some = (l, lo, hi, excl) => { const ks = keys(l).filter((k) => !(excl || []).includes(k)); const c = lo + Math.floor(r() * (hi - lo + 1)); const out = []; while (out.length < Math.min(c, ks.length)) { const k = pick(ks); if (!out.includes(k)) out.push(k); } return out.join(" "); };
+  const yn = (p) => (r() < p ? "yes" : "no");
+  const subs = keys("sub_county"), wards = keys("ward");
+  const today = new Date(); const rows = [];
+  for (let i = 0; i < n; i++) {
+    const o = {};
+    o.consent = r() < 0.96 ? "yes" : "no";
+    const dt = new Date(today.getTime() - Math.floor(Math.pow(r(), 1.3) * 21) * 86400000);
+    o.interview_date = dkey(dt);
+    if (o.consent === "no") { rows.push(o); continue; }
+    const sub = pick(subs); o.sub_county = sub; o.ward = pick(wards.filter((w) => w.startsWith(sub + "_")));
+    o.q11_caregiver_sex = wp([["female", 80], ["male", 20]]);
+    o.q12_caregiver_age = String(22 + Math.floor(r() * 45));
+    o.q13_head_of_household = yn(.45);
+    o.q14_relationship = wp([["2", 70], ["4", 14], ["1", 5], ["5", 6], ["3", 3], ["6", 2]]);
+    o.q16_caregiver_attended_school = yn(.88);
+    if (o.q16_caregiver_attended_school === "yes") o.q17_caregiver_highest_grade = wp([["9", 22], ["10", 8], ["13", 22], ["16", 12], ["3", 8], ["6", 10], ["20", 6], ["12", 12]]);
+    o.q18_has_phone = yn(.84);
+    if (o.q18_has_phone === "no") o.q19_no_phone_why = wp([["1", 55], ["5", 10], ["11", 10], ["7", 10], ["8", 15]]); else o.q20_smartphone = yn(.45);
+    o.gov_programme = r() < .5 ? "none" : some("gov_programme", 1, 2, ["none", "other"]);
+    o.nongov_programme = yn(.2);
+    o.main_activity_7d = wp([["2", 28], ["3", 22], ["1", 8], ["16", 16], ["13", 12], ["11", 6], ["18", 4], ["14", 4]]);
+    o.econ_engaged = yn(.55);
+    if (o.econ_engaged === "yes") o.econ_activity = pick(["1", "2", "3", "4", "5", "7", "10"]); else o.econ_interested = yn(.7);
+    o.reduced_income = yn(.72);
+    o.care_support_needed = some("care_support", 1, 4);
+    o.support_group = yn(.38);
+    if (o.support_group === "yes") o.support_group_type = pick(["1", "2", "3", "4", "5"]);
+    const age = wp([[2, 6], [3, 7], [4, 8], [5, 9], [6, 10], [7, 10], [8, 9], [9, 8], [10, 8], [11, 7], [12, 6], [13, 5], [14, 4], [15, 3], [16, 2], [17, 1], [19, 1]]);
+    o.child_age = String(age);
+    o.q23_child_sex = wp([["male", 54], ["female", 45], ["intersex", 1]]);
+    o.q25_identified_by = wp([["1", 55], ["2", 14], ["3", 14], ["4", 12], ["other", 5]]);
+    o.q26_age_identified = age < 3 ? pick(["1", "2"]) : wp([["1", 30], ["2", 22], ["3", 16], ["4", 10], ["5", 16], ["6", 6]]);
+    o.q27_attending_school = yn(age < 4 ? .1 : .72);
+    if (o.q27_attending_school === "no") o.q27_no_school_why = wp([["1", 30], ["5", 24], ["2", 12], ["3", 8], ["4", 10], ["6", 6], ["7", 10]]);
+    else { o.q29_school_level = String(Math.max(1, Math.min(15, age - 3 + Math.floor(r() * 3) - 1))); o.q30_school_type = wp([["2", 38], ["1", 22], ["3", 20], ["4", 20]]); }
+    o.q28_earc_assessed = yn(.46);
+    o.q31_has_talent = yn(.42);
+    if (o.q31_has_talent === "yes") { o.q32_talents = some("talent", 1, 2); if (o.q32_talents.split(" ").includes("sports")) o.q34_in_sports_group = yn(.35); }
+    o.q38_registered_ncpwd = yn(.58);
+    if (o.q38_registered_ncpwd === "yes") {
+      o.q37_has_certificate = yn(.8);
+      if (o.q37_has_certificate === "yes") {
+        const cats = [wp([["physical", 36], ["mental", 26], ["hearing", 10], ["visual", 9], ["speech", 9], ["chronic", 7], ["maxillofacial", 1], ["others", 2]])];
+        o.q39_cert_category = cats.join(" ");
+        const pool = Object.keys(SPEC.disCat).filter((k) => SPEC.disCat[k].includes(cats[0]) || (cats[0] !== "others" && k === "144" && false));
+        o.q41_cert_disability = pick(pool.length ? pool : ["144"]);
+        o.q43_cert_uses = some("cert_use", 1, 3);
+      }
+    } else o.q44a_not_registered_why = some("not_registered_why", 1, 3);
+    o.q45_assessment_support = some("assess_improve", 1, 3);
+    o.q46_comm_improve = some("comm_improve", 1, 3);
+    if (age < 5) { o.q47_welfare_clinic = yn(.8); if (o.q47_welfare_clinic === "no") o.q47_no_clinic_why = pick(["1", "2", "3", "4"]); }
+    o.q48_milestones_discussed = yn(.55);
+    const sev = wp([[0, 25], [1, 35], [2, 28], [3, 12]]);
+    const adlKeys = ["q52_eating", "q54_washing", "q55_dressing", "q56_toilet", "q57_moving_house", "q58_outside_house", "q59_transport", "q60_shopping", "q61_water", "q63_education_access", "q65_communicating", "q66_caring_family", "q68_community"];
+    adlKeys.forEach((k, j) => {
+      if ((k === "q59_transport" || k === "q60_shopping") && !(age >= 11 && age <= 17)) return;
+      const hard = (j > 5 ? 1 : 0) + sev;
+      o[k] = wp([["1", Math.max(2, 40 - hard * 11)], ["2", 14], ["3", 14 + hard * 9], ["4", 2 + hard * 5]]);
+    });
+    o.q69_has_at = yn(.4);
+    if (o.q69_has_at === "yes") {
+      o.q70_at_have = some("at_device", 1, 2); o.q70_at_state = wp([["1", 45], ["2", 30], ["3", 8], ["4", 17]]);
+      o.q72_at_payer = some("at_payer", 1, 2); o.q73_at_cost = wp([["1", 12], ["2", 28], ["3", 24], ["4", 16], ["5", 8], ["6", 4], ["7", 4], ["8", 4]]);
+    } else { o.q70_1_needs_at = wp([["yes", 72], ["no", 10], ["dk", 18]]); if (o.q70_1_needs_at === "yes") o.q70_2_at_needed = some("at_device", 1, 3); }
+    o.q71_at_challenges = some("at_challenge", 1, 3);
+    o.q74_extra_help = some("extra_help", 1, 3, ["none"]);
+    [["env_transport", 5, 1], ["env_natural", 5, 1], ["env_info", 5, 1], ["env_att_home", 4, 1], ["env_att_school", 4, 0], ["env_att_community", 4, 0]].forEach(([p, nf, hasImp]) => {
+      const f = wp([["1", 12], ["2", 16], ["3", 18], ["4", 46], ["5", nf === 5 ? 8 : 0]]); o[p + "_freq"] = f;
+      if (hasImp && f !== "4" && f !== "5") o[p + "_impact"] = p === "env_info" ? wp([["4", 40], ["5", 40], ["6", 20]]) : wp([["1", 40], ["2", 38], ["3", 22]]);
+    });
+    rows.push(o);
+  }
+  return rows;
+}
+
+/* ---------- state ---------- */
+const S = { all: [], refused: 0, source: "", demo: true, tab: "overview", filt: { sub: "", ward: "", sex: "", age: "", from: "", to: "" }, tbl: {}, full: {}, rawKeys: [] };
+const AGEBANDS = [["0-4", "0 to 4 years", 0, 4], ["5-10", "5 to 10 years", 5, 10], ["11-17", "11 to 17 years", 11, 17], ["18+", "18 years and over", 18, 200]];
+const bandOf = (a) => { if (a === null || a === undefined) return ""; for (const b of AGEBANDS) if (a >= b[2] && a <= b[3]) return b[0]; return ""; };
+
+function ingest(rows, source, demo) {
+  S.rawKeys = rows.length ? Object.keys(rows[0]) : [];
+  const recs = rows.map(normRow);
+  S.refused = recs.filter((r) => r.consent === "no").length;
+  S.all = recs.filter((r) => r.consent !== "no");
+  S.source = source; S.demo = demo;
+  S.filt = { sub: "", ward: "", sex: "", age: "", from: "", to: "" };
+  buildFilters(); renderAll();
+}
+const filtered = () => {
+  const f = S.filt;
+  return S.all.filter((r) => (!f.sub || r.sub === f.sub) && (!f.ward || r.ward === f.ward) && (!f.sex || r.q23_child_sex === f.sex) && (!f.age || bandOf(r.age) === f.age) &&
+    (!f.from || (r.date && dkey(r.date) >= f.from)) && (!f.to || (r.date && dkey(r.date) <= f.to)));
+};
+
+/* ---------- counting ---------- */
+function tally(recs, f, opts) {
+  opts = opts || {}; const d = F[f]; const c = {}; let n = 0;
+  for (const r of recs) {
+    const v = r[f]; const arr = d.k === "m" ? v : (v ? [v] : []);
+    if (!arr.length) continue; n++;
+    for (const x of arr) c[x] = (c[x] || 0) + 1;
+  }
+  let ents = Object.keys(c).map((k) => ({ k, label: lab(d.l, k), n: c[k] }));
+  if (opts.order === "list") { const ks = Object.keys(CH[d.l]); ents.sort((a, b) => ks.indexOf(a.k) - ks.indexOf(b.k)); }
+  else ents.sort((a, b) => b.n - a.n);
+  return { ents, n };
+}
+const share = (recs, f, code) => { const t = tally(recs, f); const hit = t.ents.find((e) => e.k === code); return { n: hit ? hit.n : 0, den: t.n }; };
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+const median = (a) => { a = a.filter((x) => x !== null).sort((x, y) => x - y); if (!a.length) return null; const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+
+/* ---------- card builders ---------- */
+function barsBody(ents, den, max, id) {
+  if (!ents.length) return '<div class="empty">No answers for the current filters.</div>';
+  const show = S.full[id] ? ents : ents.slice(0, max);
+  const rows = show.map((e) => { const p = pct(e.n, den); return `<div class="row" title="${esc(e.label)}: ${e.n} of ${den}"><span class="l">${esc(e.label)}</span><span class="v">${e.n} · ${p}%</span><span class="t"><i style="width:${Math.max(p, e.n ? 1 : 0)}%"></i></span></div>`; }).join("");
+  return `<div class="rows">${rows}</div>`;
+}
+function tableBody(ents, den) {
+  return `<div class="tbl-wrap"><table><thead><tr><th>Answer</th><th class="num">Count</th><th class="num">Share</th></tr></thead><tbody>${ents.map((e) => `<tr><td>${esc(e.label)}</td><td class="num">${e.n}</td><td class="num">${pct(e.n, den)}%</td></tr>`).join("")}</tbody></table></div>`;
+}
+function barCard(id, title, ents, den, o) {
+  o = o || {}; const max = o.max || 10;
+  const more = ents.length > max;
+  const body = S.tbl[id] ? tableBody(ents, den) : barsBody(ents, den, max, id);
+  return `<section class="card${o.wide ? " wide" : ""}" data-id="${id}"><h3>${esc(title)}</h3><div class="meta"><span>${den} answered</span>${more && !S.tbl[id] ? `<button class="link" data-act="full" data-id="${id}">${S.full[id] ? "Show top " + max : "Show all " + ents.length}</button>` : ""}<button class="link" data-act="tbl" data-id="${id}">${S.tbl[id] ? "Show chart" : "Show table"}</button></div>${body}</section>`;
+}
+function fieldCard(recs, f, title, o) { const t = tally(recs, f, o); return barCard(f, title, t.ents, t.n, o); }
+
+const ADL = [["q52_eating", "Eating or drinking"], ["q54_washing", "Washing the whole body"], ["q55_dressing", "Dressing"], ["q56_toilet", "Going to the toilet"], ["q57_moving_house", "Moving around the house"], ["q58_outside_house", "Outside the house"], ["q59_transport", "Using transport (ages 11 to 17)"], ["q60_shopping", "Shopping at the market (ages 11 to 17)"], ["q61_water", "Fetching water"], ["q63_education_access", "Accessing educational facilities"], ["q65_communicating", "Communicating with family and friends"], ["q66_caring_family", "Taking care of family members"], ["q68_community", "Community activities"]];
+function heatCard(id, title, rows, cols, extra, sub) {
+  const head = cols.map((c) => `<th class="num">${esc(c[1])}</th>`).join("") + `<th class="num">${esc(extra.title)}</th><th class="num">Asked</th>`;
+  const body = rows.map((r) => {
+    const t = tally(r.recs, r.f); const map = {}; t.ents.forEach((e) => (map[e.k] = e.n));
+    const cells = cols.map((c) => { const p = pct(map[c[0]] || 0, t.n); return `<td class="cell" style="background-image:linear-gradient(90deg,var(--bar-soft) ${p}%,transparent ${p}%)" title="${map[c[0]] || 0} of ${t.n}">${p}%</td>`; }).join("");
+    const ex = extra.codes.reduce((s, c) => s + (map[c] || 0), 0); const ep = pct(ex, t.n);
+    return `<tr><td>${esc(r.label)}</td>${cells}<td class="cell alt" style="background-image:linear-gradient(90deg,var(--alt-soft) ${ep}%,transparent ${ep}%)"><b>${ep}%</b></td><td class="num">${t.n}</td></tr>`;
+  }).join("");
+  return `<section class="card wide" data-id="${id}"><h3>${esc(title)}</h3><div class="meta"><span>${esc(sub)}</span></div><div class="tbl-wrap"><table class="heat"><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table></div></section>`;
+}
+function timelineCard(recs) {
+  const c = {}; recs.forEach((r) => { if (r.date) c[dkey(r.date)] = (c[dkey(r.date)] || 0) + 1; });
+  const days = Object.keys(c).sort();
+  if (!days.length) return `<section class="card wide"><h3>Interviews per day</h3><div class="empty">No interview dates for the current filters.</div></section>`;
+  const d0 = new Date(days[0]), d1 = new Date(days[days.length - 1]); const pts = [];
+  for (let d = new Date(d0); d <= d1; d = new Date(d.getTime() + 86400000)) pts.push({ k: dkey(d), n: c[dkey(d)] || 0 });
+  const W = 720, H = 190, L = 34, R = 12, T = 12, B = 26; const mx = Math.max(...pts.map((p) => p.n), 1);
+  const nice = mx <= 5 ? mx : Math.ceil(mx / 5) * 5; const X = (i) => L + (pts.length === 1 ? (W - L - R) / 2 : (i * (W - L - R)) / (pts.length - 1)); const Y = (v) => T + (H - T - B) * (1 - v / nice);
+  const line = pts.map((p, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(p.n).toFixed(1)).join(" ");
+  const area = line + ` L${X(pts.length - 1).toFixed(1)} ${Y(0)} L${X(0).toFixed(1)} ${Y(0)} Z`;
+  const ticks = [0, 0.5, 1].map((t) => Math.round(nice * t)).filter((v, i, a) => a.indexOf(v) === i);
+  const grid = ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text class="axis-text" x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`).join("");
+  const step = Math.max(1, Math.ceil(pts.length / 7));
+  const xl = pts.map((p, i) => (i % step === 0 || i === pts.length - 1 ? `<text class="axis-text" x="${X(i)}" y="${H - 8}" text-anchor="${i === pts.length - 1 && pts.length > 1 ? "end" : i === 0 && pts.length > 1 ? "start" : "middle"}">${p.k.slice(5)}</text>` : "")).join("");
+  const last = pts.length - 1;
+  const total = pts.reduce((s, p) => s + p.n, 0);
+  return `<section class="card wide"><h3>Interviews per day</h3><div class="meta"><span>${total} interviews, ${pts.length} day${pts.length > 1 ? "s" : ""}</span></div><div class="readout" id="tl-read">Hover over the chart for a daily count.</div><div class="svgwrap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Interviews per day, peak ${mx}" id="tl" data-pts='${JSON.stringify(pts.map((p) => [p.k, p.n]))}' data-l="${L}" data-r="${R}" data-w="${W}">${grid}${xl}<path d="${area}" fill="var(--bar-soft)"/><path d="${line}" fill="none" stroke="var(--bar)" stroke-width="2" stroke-linejoin="round"/><line id="tl-x" y1="${T}" y2="${H - B}" stroke="var(--ink-3)" stroke-width="1" visibility="hidden"/><circle id="tl-dot" r="4" fill="var(--bar)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/><circle cx="${X(last)}" cy="${Y(pts[last].n)}" r="4" fill="var(--bar)" stroke="var(--surface)" stroke-width="2"/></svg></div></section>`;
+}
+function bindTimeline() {
+  const svg = $("#tl"); if (!svg) return;
+  const pts = JSON.parse(svg.dataset.pts), L = +svg.dataset.l, R = +svg.dataset.r, W = +svg.dataset.w;
+  const H = svg.viewBox.baseVal.height, mx = Math.max(...pts.map((p) => p[1]), 1); const nice = mx <= 5 ? mx : Math.ceil(mx / 5) * 5;
+  const move = (e) => {
+    const rc = svg.getBoundingClientRect(); const x = ((e.clientX - rc.left) / rc.width) * W;
+    const i = pts.length === 1 ? 0 : Math.max(0, Math.min(pts.length - 1, Math.round(((x - L) / (W - L - R)) * (pts.length - 1))));
+    const cx = L + (pts.length === 1 ? (W - L - R) / 2 : (i * (W - L - R)) / (pts.length - 1)); const cy = 12 + (H - 12 - 26) * (1 - pts[i][1] / nice);
+    const ln = $("#tl-x"), dt = $("#tl-dot"); ln.setAttribute("x1", cx); ln.setAttribute("x2", cx); ln.setAttribute("visibility", "visible"); dt.setAttribute("cx", cx); dt.setAttribute("cy", cy); dt.setAttribute("visibility", "visible");
+    $("#tl-read").textContent = pts[i][0] + ": " + pts[i][1] + " interview" + (pts[i][1] === 1 ? "" : "s");
+  };
+  svg.addEventListener("pointermove", move);
+  svg.addEventListener("pointerleave", () => { $("#tl-x").setAttribute("visibility", "hidden"); $("#tl-dot").setAttribute("visibility", "hidden"); $("#tl-read").textContent = "Hover over the chart for a daily count."; });
+}
+
+/* ---------- tabs ---------- */
+const TABS = [["overview", "Overview"], ["disability", "Disability and registration"], ["edu", "Education, talent and health"], ["at", "Assistive technology"], ["adl", "Daily activities"], ["env", "Environment"], ["care", "Caregivers"]];
+function tabCards(tab, recs) {
+  const fc = (f, t, o) => fieldCard(recs, f, t, o);
+  switch (tab) {
+    case "overview": {
+      const bands = AGEBANDS.map((b) => ({ k: b[0], label: b[1], n: recs.filter((r) => bandOf(r.age) === b[0]).length })); const bn = bands.reduce((s, b) => s + b.n, 0);
+      return [timelineCard(recs), fc("sub_county", "Interviews by sub-county", { max: 8 }), fc("ward", "Interviews by ward", { max: 8 }), fc("q23_child_sex", "Sex of child"), barCard("ageband", "Age of child", bands, bn), fc("q39_cert_category", "Disability category on certificate"), fc("q25_identified_by", "How the disability was first identified")];
+    }
+    case "disability":
+      return [fc("q38_registered_ncpwd", "Registered with NCPWD on e-Citizen"), fc("q37_has_certificate", "Has a disability certificate"), fc("q39_cert_category", "Disability category on certificate"), fc("q41_cert_disability", "Disability on certificate", { max: 12 }), fc("q26_age_identified", "Age when disability was first identified", { order: "list" }), fc("q43_cert_uses", "Main uses of the certificate"), fc("q44a_not_registered_why", "Why the child is not registered"), fc("q45_assessment_support", "What would improve access to assessment"), fc("q46_comm_improve", "How communication with providers could improve")];
+    case "edu":
+      return [fc("q27_attending_school", "Child attends school"), fc("q27_no_school_why", "Why the child is not in school"), fc("q28_earc_assessed", "Assessed by Education Office (EARC)"), fc("q29_school_level", "Level the child attends", { order: "list", max: 15 }), fc("q30_school_type", "Type of school"), fc("q31_has_talent", "Child has a talent"), fc("q32_talents", "Talents"), fc("q34_in_sports_group", "In a sports group or team"), fc("q47_welfare_clinic", "Attended child welfare clinic (under 5)"), fc("q47_no_clinic_why", "Why not attended"), fc("q48_milestones_discussed", "Provider discussed milestones")];
+    case "at": {
+      const held = tally(recs, "q70_at_have"), need = tally(recs, "q70_2_at_needed");
+      return [fc("q69_has_at", "Child has an assistive device"), fc("q70_at_have", "Devices the child has"), fc("q70_at_state", "Condition of the device"), fc("q70_1_needs_at", "Child without a device needs one"), fc("q70_2_at_needed", "Devices needed"), fc("q71_at_challenges", "Challenges getting assistive technology"), fc("q72_at_payer", "Who paid"), fc("q73_at_cost", "Cost of the device (KES)", { order: "list" }), fc("q74_extra_help", "Additional assistance the child needs")];
+    }
+    case "adl":
+      return [heatCard("adl", "Support needed for daily activities", ADL.map((a) => ({ f: a[0], label: a[1], recs })), [["1", "Alone, no device"], ["2", "Alone, with device"], ["3", "Needs someone"], ["4", "Cannot, even with help"]], { title: "Needs help or cannot", codes: ["3", "4"] }, "Share of children by how they manage each activity. Orange column: needs someone's help or cannot do it at all.")];
+    case "env": {
+      const ENV = [["env_transport", "Transport availability and access"], ["env_natural", "Natural environment (terrain, climate)"], ["env_info", "Information not in a usable format"], ["env_att_home", "Attitudes of others at home"], ["env_att_school", "Attitudes at school or health service"], ["env_att_community", "Attitudes in the community"]];
+      const freq = heatCard("env", "How often these barriers were a problem in the last 12 months", ENV.map((a) => ({ f: a[0] + "_freq", label: a[1], recs })), [["1", "Every day"], ["2", "Weekly"], ["3", "Monthly"], ["4", "Never"], ["5", "Not applicable"]], { title: "At least monthly", codes: ["1", "2", "3"] }, "Share of children by frequency of the barrier.");
+      const impRows = ENV.filter((a) => F[a[0] + "_impact"]).map((a) => {
+        const t = tally(recs, a[0] + "_impact"); const get = (nm) => t.ents.filter((e) => e.label === nm).reduce((s, e) => s + e.n, 0);
+        return `<tr><td>${esc(a[1])}</td>${["Mildly", "Moderately", "Severely"].map((nm) => { const n = get(nm), p = pct(n, t.n); return `<td class="cell" style="background-image:linear-gradient(90deg,var(--${nm === "Severely" ? "alt-soft" : "bar-soft"}) ${p}%,transparent ${p}%)" title="${n} of ${t.n}">${p}%</td>`; }).join("")}<td class="num">${t.n}</td></tr>`;
+      }).join("");
+      const imp = `<section class="card wide"><h3>How the barriers affect daily activity</h3><div class="meta"><span>Among children for whom the barrier occurs at least monthly</span></div><div class="tbl-wrap"><table class="heat"><thead><tr><th></th><th class="num">Mildly</th><th class="num">Moderately</th><th class="num">Severely</th><th class="num">Asked</th></tr></thead><tbody>${impRows}</tbody></table></div></section>`;
+      return [freq, imp];
+    }
+    case "care": {
+      const bands = [["<25", 0, 24], ["25-34", 25, 34], ["35-44", 35, 44], ["45-54", 45, 54], ["55-64", 55, 64], ["65+", 65, 200]].map((b) => ({ k: b[0], label: b[0] + " years", n: recs.filter((r) => r.cgAge !== null && r.cgAge >= b[1] && r.cgAge <= b[2]).length })); const bn = bands.reduce((s, b) => s + b.n, 0);
+      return [fc("q11_caregiver_sex", "Sex of caregiver"), barCard("cgage", "Age of caregiver", bands, bn), fc("q14_relationship", "Relationship to the child"), fc("q13_head_of_household", "Caregiver is head of household"), fc("q16_caregiver_attended_school", "Caregiver has attended school"), fc("q17_caregiver_highest_grade", "Highest grade attained", { max: 8 }), fc("q18_has_phone", "Caregiver has a phone"), fc("q20_smartphone", "Phone is a smartphone"), fc("q19_no_phone_why", "Why no phone"), fc("main_activity_7d", "Main activity in the last 7 days", { max: 8 }), fc("econ_engaged", "Engaged in an economic activity"), fc("econ_activity", "Economic activity"), fc("gov_programme", "Government social protection received"), fc("nongov_programme", "Non-government support received"), fc("reduced_income", "Reduced income because of caring"), fc("care_support_needed", "Support needed to care"), fc("support_group", "Belongs to a support group"), fc("support_group_type", "Type of support group")];
+    }
+  }
+  return [];
+}
+
+function kpis(recs) {
+  const n = recs.length;
+  const reg = share(recs, "q38_registered_ncpwd", "yes"), cert = share(recs, "q37_has_certificate", "yes"), sch = share(recs, "q27_attending_school", "yes"), at = share(recs, "q69_has_at", "yes"), need = share(recs, "q70_1_needs_at", "yes");
+  const med = median(recs.map((r) => r.age));
+  const k = [[n, "Children profiled", "one per interview"], [med === null ? "n/a" : med, "Median age of child", "years"], [pct(reg.n, reg.den) + "%", "Registered with NCPWD", `of ${reg.den} asked`], [pct(cert.n, cert.den) + "%", "Hold a disability certificate", `of ${cert.den} registered`], [pct(sch.n, sch.den) + "%", "Attending school", `of ${sch.den} asked`], [pct(at.n, at.den) + "%", "Have an assistive device", `of ${at.den} asked`], [pct(need.n, need.den) + "%", "Without a device who need one", `of ${need.den} asked`]];
+  $("#kpis").innerHTML = k.map((x) => `<div class="kpi"><b>${x[0]}</b><span>${x[1]}</span><small>${x[2]}</small></div>`).join("");
+}
+
+/* ---------- rendering ---------- */
+function renderAll() {
+  const recs = filtered();
+  $("#status").innerHTML = `<span class="pill${S.demo ? " demo" : ""}">${S.demo ? "Demo data, not real survey results" : "Loaded data"}</span><span>${esc(S.source)}</span>` + (S.refused ? `<span>${S.refused} refusal${S.refused > 1 ? "s" : ""} excluded</span>` : "");
+  $("#count").textContent = `${recs.length} of ${S.all.length} interviews`;
+  kpis(recs);
+  $("#tabs").innerHTML = TABS.map((t) => `<button class="tab" role="tab" aria-selected="${t[0] === S.tab}" data-tab="${t[0]}">${t[1]}</button>`).join("");
+  $("#grid").innerHTML = tabCards(S.tab, recs).join("");
+  bindTimeline(); dataCheck();
+}
+function buildFilters() {
+  const opt = (v, t) => `<option value="${esc(v)}">${esc(t)}</option>`;
+  const subs = [...new Set(S.all.map((r) => r.sub).filter(Boolean))];
+  $("#f-sub").innerHTML = opt("", "All sub-counties") + subs.map((s) => opt(s, lab("sub_county", s))).join("");
+  $("#f-sex").innerHTML = opt("", "All") + Object.keys(CH.sex).map((k) => opt(k, CH.sex[k])).join("");
+  $("#f-age").innerHTML = opt("", "All ages") + AGEBANDS.map((b) => opt(b[0], b[1])).join("");
+  fillWards(); ["from", "to"].forEach((x) => ($("#f-" + x).value = ""));
+  ["sub", "sex", "age"].forEach((x) => ($("#f-" + x).value = ""));
+}
+function fillWards() {
+  const ws = [...new Set(S.all.filter((r) => !S.filt.sub || r.sub === S.filt.sub).map((r) => r.ward).filter(Boolean))];
+  $("#f-ward").innerHTML = `<option value="">All wards</option>` + ws.map((w) => `<option value="${esc(w)}">${esc(lab("ward", w))}</option>`).join("");
+  $("#f-ward").value = S.filt.ward;
+}
+function dataCheck() {
+  const missing = Object.keys(F).filter((f) => !S.all.some((r) => (F[f].k === "m" ? r[f].length : r[f])));
+  const noDate = S.all.filter((r) => !r.date).length, noAge = S.all.filter((r) => r.age === null).length;
+  $("#dq-body").innerHTML = `<p>${S.all.length} consenting interviews, ${S.refused} refusals. ${noDate} without an interview date, ${noAge} without a child age.</p><p>${missing.length} of ${Object.keys(F).length} choice questions have no answers in this file${missing.length ? ": " + missing.map(esc).join(", ") : ""}. Many are expected to be empty because of skip patterns. If a whole section is empty, check that the export uses XML values and headers (question names, with group names included or not), with multiple choice answers in one column or as separate columns.</p>`;
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-tab],[data-act]"); if (!t) return;
+  if (t.dataset.tab) { S.tab = t.dataset.tab; renderAll(); return; }
+  const id = t.dataset.id; if (t.dataset.act === "tbl") S.tbl[id] = !S.tbl[id]; else S.full[id] = !S.full[id];
+  renderAll();
+});
+const setF = (k, v) => { S.filt[k] = v; renderAll(); };
+$("#f-sub").addEventListener("change", (e) => { S.filt.sub = e.target.value; S.filt.ward = ""; fillWards(); renderAll(); });
+$("#f-ward").addEventListener("change", (e) => setF("ward", e.target.value));
+$("#f-sex").addEventListener("change", (e) => setF("sex", e.target.value));
+$("#f-age").addEventListener("change", (e) => setF("age", e.target.value));
+$("#f-from").addEventListener("change", (e) => setF("from", e.target.value));
+$("#f-to").addEventListener("change", (e) => setF("to", e.target.value));
+$("#reset").addEventListener("click", () => { S.filt = { sub: "", ward: "", sex: "", age: "", from: "", to: "" }; buildFilters(); renderAll(); });
+$("#pick").addEventListener("click", () => $("#file").click());
+$("#demo").addEventListener("click", () => ingest(makeDemo(160), "Synthetic records generated from the form structure", true));
+function readFile(file) {
+  const fr = new FileReader();
+  fr.onload = () => {
+    try {
+      const wb = XLSX.read(fr.result, { type: "array", cellDates: true });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
+      if (!rows.length) throw new Error("The first sheet has no rows.");
+      ingest(rows, file.name + " (" + rows.length + " rows)", false);
+    } catch (err) { $("#status").innerHTML = `<span class="pill demo">Could not read the file</span><span>${esc(err.message)}</span>`; }
+  };
+  fr.readAsArrayBuffer(file);
+}
+$("#file").addEventListener("change", (e) => e.target.files[0] && readFile(e.target.files[0]));
+const dz = $("#drop");
+["dragenter", "dragover"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("over"); }));
+dz.addEventListener("drop", (e) => e.dataTransfer.files[0] && readFile(e.dataTransfer.files[0]));
+
+/* start: look for a data.csv published next to the page, else show demo data */
+(async () => {
+  try {
+    const res = await fetch("data.csv", { cache: "no-store" });
+    if (res.ok) { const buf = await res.arrayBuffer(); const wb = XLSX.read(buf, { type: "array", cellDates: true }); const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true }); if (rows.length) { ingest(rows, "data.csv (" + rows.length + " rows)", false); return; } }
+  } catch (e) { /* no published data */ }
+  ingest(makeDemo(160), "Synthetic records generated from the form structure", true);
+})();
+</script>
