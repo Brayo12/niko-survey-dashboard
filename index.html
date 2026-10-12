@@ -99,6 +99,16 @@ td.num { text-align: right; white-space: nowrap; }
 details.dq { margin-top: 22px; color: var(--ink-2); }
 details.dq summary { cursor: pointer; font-weight: 600; }
 details.dq p { max-width: 80ch; }
+dialog { border: 0; border-radius: 12px; padding: 22px; width: min(440px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+dialog::backdrop { background: rgba(5,42,110,.55); }
+dialog h2 { margin: 0 0 6px; font-size: 18px; color: var(--navy); }
+dialog p { margin: 0 0 12px; color: var(--ink-2); font-size: 13px; }
+dialog label { display: block; font-size: 12px; font-weight: 600; margin-top: 10px; color: var(--ink-2); }
+dialog input { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; }
+.dlg-msg { min-height: 18px; margin-top: 10px; font-size: 12.5px; color: var(--alt); }
+.dlg-row { display: flex; gap: 8px; margin-top: 14px; }
+.btn.solid { background: var(--navy); color: #fff; }
+.btn.plain { background: transparent; color: var(--ink-2); border: 1px solid var(--line); }
 .note { color: var(--ink-3); font-size: 12px; margin-top: 18px; max-width: 90ch; }
 </style>
 
@@ -109,10 +119,24 @@ details.dq p { max-width: 80ch; }
   </div>
   <div class="loader">
     <input type="file" id="file" accept=".csv,.xlsx,.xls" hidden>
-    <button class="btn" id="pick" type="button">Load Inform export</button>
+    <button class="btn" id="connect" type="button">Connect to Inform</button>
+    <button class="btn ghost" id="pick" type="button">Load export file</button>
     <button class="btn ghost" id="demo" type="button">Show demo data</button>
   </div>
 </div></div>
+
+
+<dialog id="dlg" aria-labelledby="dlg-t">
+  <form method="dialog" id="dlg-f">
+    <h2 id="dlg-t">Connect to Inform</h2>
+    <p>Pulls the latest submissions straight from your Inform form. Your login is used once from this browser tab, is never saved, and nothing is sent anywhere except Inform.</p>
+    <label>Data link<input id="c-url" type="url" value="https://inform.unicef.org/api/v1/data/13331.csv" required></label>
+    <label>Inform username<input id="c-user" autocomplete="username" required></label>
+    <label>Inform password<input id="c-pass" type="password" autocomplete="current-password" required></label>
+    <div class="dlg-msg" id="c-msg" role="status"></div>
+    <div class="dlg-row"><button class="btn solid" id="c-go" type="submit">Connect</button><button class="btn plain" id="c-cancel" type="button">Cancel</button></div>
+  </form>
+</dialog>
 
 <div class="wrap">
   <div class="status" id="status"></div>
@@ -487,6 +511,42 @@ const dz = $("#drop");
 ["dragenter", "dragover"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("over"); }));
 ["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("over"); }));
 dz.addEventListener("drop", (e) => e.dataTransfer.files[0] && readFile(e.dataTransfer.files[0]));
+
+
+/* ---- live connection to Inform (credentials stay in memory, never stored) ---- */
+const CONN = { url: "", auth: "" };
+async function pullInform() {
+  const res = await fetch(CONN.url, { headers: { Authorization: CONN.auth, Accept: "text/csv" }, cache: "no-store" });
+  if (res.status === 401 || res.status === 403) throw new Error("Inform rejected the username or password, or this account cannot read the form.");
+  if (!res.ok) throw new Error("Inform answered with status " + res.status + ".");
+  const txt = await res.text();
+  if (!txt.trim()) return [];
+  const wb = XLSX.read(txt, { type: "string", cellDates: true, raw: true });
+  return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
+}
+async function connectInform() {
+  const rows = await pullInform();
+  const stamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  ingest(rows, "Live from Inform, " + rows.length + " row" + (rows.length === 1 ? "" : "s") + ", refreshed " + stamp, false);
+  $("#connect").textContent = "Refresh from Inform";
+}
+$("#connect").addEventListener("click", async () => {
+  if (CONN.auth) { try { await connectInform(); } catch (err) { $("#status").innerHTML = `<span class="pill demo">Refresh failed</span><span>${esc(err.message)}</span>`; } return; }
+  $("#c-msg").textContent = ""; $("#dlg").showModal();
+});
+$("#c-cancel").addEventListener("click", () => $("#dlg").close());
+$("#dlg-f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const go = $("#c-go"); go.disabled = true; go.textContent = "Connecting...";
+  CONN.url = $("#c-url").value.trim();
+  CONN.auth = "Basic " + btoa(unescape(encodeURIComponent($("#c-user").value + ":" + $("#c-pass").value)));
+  try { await connectInform(); $("#c-pass").value = ""; $("#dlg").close(); }
+  catch (err) {
+    CONN.auth = "";
+    $("#c-msg").textContent = (err instanceof TypeError ? "The browser could not reach Inform from this page (Inform may not allow browser connections). Use Load export file instead. " : "") + (err instanceof TypeError ? "" : err.message);
+  }
+  go.disabled = false; go.textContent = "Connect";
+});
 
 /* start: look for a data.csv published next to the page, else show demo data */
 (async () => {

@@ -13,3 +13,6 @@ Do not commit exports to this repository. `.gitignore` blocks `*.csv` and `*.xls
 
 ## Publish
 Settings, Pages, deploy from the `main` branch, root folder.
+
+## Live connection to Inform
+Use **Connect to Inform** in the header and sign in with your Inform login. The page pulls the form's CSV (`https://inform.unicef.org/api/v1/data/13331.csv`) straight from Inform. The login is held in memory for that tab only and is never stored or sent anywhere else. If Inform blocks browser connections, use **Load export file** with a CSV downloaded from Inform. Never commit data files to this public repository.
