@@ -262,6 +262,16 @@ dialog input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; 
 .kpi span:not(.pict) { grid-row: 4; } .kpi small { grid-row: 5; }
 .kpi .kic { grid-column: 1 / -1; }
 .lg { grid-template-columns: 22px 1fr auto; }
+
+/* time tab */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 6px; }
+.st { display: grid; justify-items: start; gap: 2px; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--k) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--k) 25%, var(--line)); transition: transform .2s, box-shadow .2s; }
+.st:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.st b { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--ink); line-height: 1.1; }
+.st span { font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+.st .kic { width: 30px; height: 30px; font-size: 17px; margin-bottom: 4px; }
+.kpis { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
+.pict i { flex: 1; } .pict .ic { width: 100%; height: auto; max-height: 15px; }
 </style>
 
 <div class="band"><div class="band-in">
@@ -273,7 +283,6 @@ dialog input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; 
     <input type="file" id="file" accept=".csv,.xlsx,.xls" hidden>
     <button class="btn" id="connect" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></svg><span>Connect to Inform</span></button>
     <button class="btn ghost" id="pick" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14h6M9 17h4"/></svg><span>Load export file</span></button>
-    <button class="btn ghost" id="demo" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/></svg><span>Show demo data</span></button>
     <button class="btn ghost icon" id="theme" type="button" aria-label="Switch light and dark theme" title="Switch light and dark theme"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
   </div>
 </div></div>
@@ -351,7 +360,7 @@ const dkey = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2,
 function normRow(raw) {
   const flat = {}, exp = {};
   for (const k of Object.keys(raw)) {
-    const parts = k.split("/"), last = parts[parts.length - 1].trim(), val = raw[k];
+    const parts = k.split("/"), last = parts[parts.length - 1].trim(); let val = raw[k]; if (typeof val === "string" && /^n\/a$/i.test(val.trim())) val = "";
     if (parts.length > 1) {
       const parent = parts[parts.length - 2].trim();
       if (F[parent] && F[parent].k === "m" && last !== parent) { if (isTrue(val)) (exp[parent] = exp[parent] || []).push(last); continue; }
@@ -369,95 +378,24 @@ function normRow(raw) {
   rec.age = age;
   rec.cgAge = num(flat.q12_caregiver_age);
   rec.sub = rec.sub_county;
+  /* time taken to fill the form */
+  const ts = (v) => { const x = Date.parse(String(v == null ? "" : v)); return isFinite(x) ? x : null; };
+  let mins = num(flat.duration_min);
+  if (mins === null) { const s = num(flat._duration); if (s !== null) mins = s / 60; }
+  if (mins === null) { const a = ts(flat.start), b = ts(flat.end); if (a !== null && b !== null) mins = (b - a) / 60000; }
+  rec.mins = mins !== null && mins > 0 ? Math.round(mins * 10) / 10 : null;
+  rec.secs = {};
+  let prev = ts(flat.start); const order = SECTIONS.map((s) => s[0]);
+  const st = order.map((k) => ts(flat["t_" + k])); const tend = ts(flat.t_end) !== null ? ts(flat.t_end) : ts(flat.end);
+  const first = st.find((x) => x !== null);
+  if (prev !== null && first !== undefined && first > prev) rec.secs.intro = (first - prev) / 60000;
+  order.forEach((k, i) => { if (st[i] === null) return; let nx = null; for (let j = i + 1; j < st.length; j++) if (st[j] !== null) { nx = st[j]; break; } if (nx === null) nx = tend; if (nx !== null && nx >= st[i]) rec.secs[k] = (nx - st[i]) / 60000; });
   return rec;
 }
 
-/* ---------- demo data (synthetic, follows the form's skip logic) ---------- */
-function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function makeDemo(n) {
-  const r = mulberry(20261007);
-  const pick = (a) => a[Math.floor(r() * a.length)];
-  const wp = (pairs) => { let t = pairs.reduce((s, p) => s + p[1], 0), x = r() * t; for (const [v, w] of pairs) { if ((x -= w) < 0) return v; } return pairs[0][0]; };
-  const keys = (l) => Object.keys(CH[l]);
-  const some = (l, lo, hi, excl) => { const ks = keys(l).filter((k) => !(excl || []).includes(k)); const c = lo + Math.floor(r() * (hi - lo + 1)); const out = []; while (out.length < Math.min(c, ks.length)) { const k = pick(ks); if (!out.includes(k)) out.push(k); } return out.join(" "); };
-  const yn = (p) => (r() < p ? "yes" : "no");
-  const subs = keys("sub_county"), wards = keys("ward");
-  const today = new Date(); const rows = [];
-  for (let i = 0; i < n; i++) {
-    const o = {};
-    o.consent = r() < 0.96 ? "yes" : "no";
-    const dt = new Date(today.getTime() - Math.floor(Math.pow(r(), 1.3) * 21) * 86400000);
-    o.interview_date = dkey(dt);
-    if (o.consent === "no") { rows.push(o); continue; }
-    const sub = pick(subs); o.sub_county = sub; o.ward = pick(wards.filter((w) => w.startsWith(sub + "_")));
-    o.q11_caregiver_sex = wp([["female", 80], ["male", 20]]);
-    o.q12_caregiver_age = String(22 + Math.floor(r() * 45));
-    o.q13_head_of_household = yn(.45);
-    o.q14_relationship = wp([["2", 70], ["4", 14], ["1", 5], ["5", 6], ["3", 3], ["6", 2]]);
-    o.q16_caregiver_attended_school = yn(.88);
-    if (o.q16_caregiver_attended_school === "yes") o.q17_caregiver_highest_grade = wp([["9", 22], ["10", 8], ["13", 22], ["16", 12], ["3", 8], ["6", 10], ["20", 6], ["12", 12]]);
-    o.q18_has_phone = yn(.84);
-    if (o.q18_has_phone === "no") o.q19_no_phone_why = wp([["1", 55], ["5", 10], ["11", 10], ["7", 10], ["8", 15]]); else o.q20_smartphone = yn(.45);
-    o.gov_programme = r() < .5 ? "none" : some("gov_programme", 1, 2, ["none", "other"]);
-    o.nongov_programme = yn(.2);
-    o.main_activity_7d = wp([["2", 28], ["3", 22], ["1", 8], ["16", 16], ["13", 12], ["11", 6], ["18", 4], ["14", 4]]);
-    o.econ_engaged = yn(.55);
-    if (o.econ_engaged === "yes") o.econ_activity = pick(["1", "2", "3", "4", "5", "7", "10"]); else o.econ_interested = yn(.7);
-    o.reduced_income = yn(.72);
-    o.care_support_needed = some("care_support", 1, 4, ["none"]);
-    o.support_group = yn(.38);
-    if (o.support_group === "yes") o.support_group_type = pick(["1", "2", "3", "4", "5"]);
-    const age = wp([[2, 6], [3, 7], [4, 8], [5, 9], [6, 10], [7, 10], [8, 9], [9, 8], [10, 8], [11, 7], [12, 6], [13, 5], [14, 4], [15, 3], [16, 2], [17, 1], [19, 1]]);
-    o.child_age = String(age);
-    o.q23_child_sex = wp([["male", 54], ["female", 45], ["intersex", 1]]);
-    o.q25_identified_by = wp([["1", 55], ["2", 14], ["3", 14], ["4", 12], ["other", 5]]);
-    o.q26_age_identified = age < 3 ? pick(["1", "2"]) : wp([["1", 30], ["2", 22], ["3", 16], ["4", 10], ["5", 16], ["6", 6]]);
-    o.q27_attending_school = yn(age < 4 ? .1 : .72);
-    if (o.q27_attending_school === "no") o.q27_no_school_why = some("no_school_why", 1, 2);
-    else { o.q29_school_level = String(Math.max(1, Math.min(15, age - 3 + Math.floor(r() * 3) - 1))); o.q30_school_type = wp([["2", 38], ["1", 22], ["3", 20], ["4", 20]]); }
-    o.q28_earc_assessed = yn(.46);
-    o.q31_has_talent = yn(.42);
-    if (o.q31_has_talent === "yes") { o.q32_talents = some("talent", 1, 2); if (o.q32_talents.split(" ").includes("sports")) o.q34_in_sports_group = yn(.35); }
-    o.q38_registered_ncpwd = yn(.58);
-    if (o.q38_registered_ncpwd === "yes") {
-      o.q37_has_certificate = yn(.8);
-      if (o.q37_has_certificate === "yes") {
-        const cats = [wp([["physical", 36], ["mental", 26], ["hearing", 10], ["visual", 9], ["speech", 9], ["chronic", 7], ["maxillofacial", 1], ["others", 2]])];
-        o.q39_cert_category = cats.join(" ");
-        const pool = Object.keys(SPEC.disCat).filter((k) => SPEC.disCat[k].includes(cats[0]) || (cats[0] !== "others" && k === "144" && false));
-        o.q41_cert_disability = pick(pool.length ? pool : ["144"]);
-        o.q43_cert_uses = some("cert_use", 1, 3);
-      }
-    } else o.q44a_not_registered_why = some("not_registered_why", 1, 3);
-    o.q45_assessment_support = some("assess_improve", 1, 3);
-    o.q46_comm_improve = some("comm_improve", 1, 3);
-    if (age < 5) { o.q47_welfare_clinic = yn(.8); if (o.q47_welfare_clinic === "no") o.q47_no_clinic_why = pick(["1", "2", "3", "4"]); }
-    o.q48_milestones_discussed = yn(.55);
-    const sev = wp([[0, 25], [1, 35], [2, 28], [3, 12]]);
-    const adlKeys = ["q52_eating", "q54_washing", "q55_dressing", "q56_toilet", "q57_moving_house", "q58_outside_house", "q59_transport", "q60_shopping", "q61_water", "q63_education_access", "q65_communicating", "q66_caring_family", "q68_community"];
-    adlKeys.forEach((k, j) => {
-      if ((k === "q59_transport" || k === "q60_shopping") && !(age >= 11 && age <= 17)) return;
-      const hard = (j > 5 ? 1 : 0) + sev;
-      o[k] = wp([["1", Math.max(2, 40 - hard * 11)], ["2", 14], ["3", 14 + hard * 9], ["4", 2 + hard * 5]]);
-    });
-    o.q69_has_at = yn(.4);
-    if (o.q69_has_at === "yes") {
-      o.q70_at_have = some("at_device", 1, 2); o.q70_at_state = wp([["1", 45], ["2", 30], ["3", 8], ["4", 17]]);
-      o.q72_at_payer = some("at_payer", 1, 2); o.q73_at_cost = wp([["1", 12], ["2", 28], ["3", 24], ["4", 16], ["5", 8], ["6", 4], ["7", 4], ["8", 4]]);
-    } else { o.q70_1_needs_at = wp([["yes", 72], ["no", 10], ["dk", 18]]); if (o.q70_1_needs_at === "yes") o.q70_2_at_needed = some("at_device", 1, 3); }
-    o.q71_at_challenges = some("at_challenge", 1, 3);
-    o.q74_extra_help = some("extra_help", 1, 3, ["none"]);
-    [["env_transport", 5, 1], ["env_natural", 5, 1], ["env_info", 5, 1], ["env_att_home", 4, 1], ["env_att_school", 4, 0], ["env_att_community", 4, 0]].forEach(([p, nf, hasImp]) => {
-      const f = wp([["1", 12], ["2", 16], ["3", 18], ["4", 46], ["5", nf === 5 ? 8 : 0]]); o[p + "_freq"] = f;
-      if (hasImp && f !== "4" && f !== "5") o[p + "_impact"] = p === "env_info" ? wp([["4", 40], ["5", 40], ["6", 20]]) : wp([["1", 40], ["2", 38], ["3", 22]]);
-    });
-    rows.push(o);
-  }
-  return rows;
-}
-
 /* ---------- state ---------- */
-const S = { all: [], refused: 0, source: "", demo: true, tab: "overview", filt: { sub: "", ward: "", sex: "", age: "", from: "", to: "" }, tbl: {}, full: {}, rawKeys: [] };
+const S = { all: [], refused: 0, source: "", demo: false, tab: "overview", filt: { sub: "", ward: "", sex: "", age: "", from: "", to: "" }, tbl: {}, full: {}, rawKeys: [] };
+const SECTIONS = [["location", "Location"], ["caregiver", "Caregiver details"], ["socio", "Socio-economic"], ["child", "Child details"], ["education", "Education"], ["talent", "Talent"], ["disability", "Disability status"], ["health", "Child health care"], ["support", "Daily activities"], ["at", "Assistive technology"], ["env", "Environment"]];
 const AGEBANDS = [["0-4", "0 to 4 years", 0, 4], ["5-10", "5 to 10 years", 5, 10], ["11-17", "11 to 17 years", 11, 17], ["18+", "18 years and over", 18, 200]];
 const bandOf = (a) => { if (a === null || a === undefined) return ""; for (const b of AGEBANDS) if (a >= b[2] && a <= b[3]) return b[0]; return ""; };
 
@@ -548,7 +486,7 @@ const optIc = (label, id) => { const l = String(label || ""); for (const [re, n]
 const badge = (n) => `<span class="hi">${icon(n)}</span>`;
 const ID_ICON = { q23_child_sex: "person", ageband: "clock", cgage: "clock", q39_cert_category: "certificate", q41_cert_disability: "grid", ward: "pin", q25_identified_by: "health", q26_age_identified: "clock", q38_registered_ncpwd: "idcard", q37_has_certificate: "certificate", q43_cert_uses: "certificate", q44a_not_registered_why: "alert", q45_assessment_support: "health", q46_comm_improve: "chat", q27_attending_school: "school", q27_no_school_why: "alert", q28_earc_assessed: "school", q29_school_level: "school", q30_school_type: "school", q31_has_talent: "star", q32_talents: "star", q34_in_sports_group: "star", q47_welfare_clinic: "health", q47_no_clinic_why: "alert", q48_milestones_discussed: "chat", q69_has_at: "wheelchair", q70_1_needs_at: "wheelchair", q70_at_state: "wheelchair", q70_at_have: "wheelchair", q70_2_at_needed: "wheelchair", q71_at_challenges: "alert", q72_at_payer: "wallet", q73_at_cost: "wallet", q74_extra_help: "heart", fn_reg: "funnel", fn_at: "wheelchair", adl_radar: "radar", adl: "walk", env_radar: "radar", env: "mountain", env_imp: "alert", map: "pin", q11_caregiver_sex: "person", q14_relationship: "users", q13_head_of_household: "home", q16_caregiver_attended_school: "book", q17_caregiver_highest_grade: "book", q18_has_phone: "phone", q20_smartphone: "phone", q19_no_phone_why: "phone", main_activity_7d: "briefcase", econ_engaged: "briefcase", econ_activity: "briefcase", gov_programme: "shield", nongov_programme: "shield", reduced_income: "wallet", care_support_needed: "heart", support_group: "users", support_group_type: "users" };
 const ADLIC = { q52_eating: "utensils", q54_washing: "droplet", q55_dressing: "shirt", q56_toilet: "toilet", q57_moving_house: "walk", q58_outside_house: "door", q59_transport: "bus", q60_shopping: "bag", q61_water: "droplet", q63_education_access: "school", q65_communicating: "chat", q66_caring_family: "heart", q68_community: "users", env_transport: "bus", env_natural: "mountain", env_info: "info", env_att_home: "home", env_att_school: "school", env_att_community: "users" };
-const TABICON = { overview: "dash", disability: "idcard", edu: "school", at: "wheelchair", adl: "walk", env: "mountain", care: "users" };
+const TABICON = { overview: "dash", disability: "idcard", edu: "school", at: "wheelchair", adl: "walk", env: "mountain", care: "users", time: "clock" };
 
 /* ---------- visual helpers ---------- */
 const CI = (i) => (typeof i === "string" ? i : i < 0 ? "var(--other)" : `var(--c${(i % 6) + 1})`);
@@ -744,7 +682,7 @@ function bindTimeline() {
 
 
 /* ---------- tabs ---------- */
-const TABS = [["overview", "Overview"], ["disability", "Disability and registration"], ["edu", "Education, talent and health"], ["at", "Assistive technology"], ["adl", "Daily activities"], ["env", "Environment"], ["care", "Caregivers"]];
+const TABS = [["overview", "Overview"], ["disability", "Disability and registration"], ["edu", "Education, talent and health"], ["at", "Assistive technology"], ["adl", "Daily activities"], ["env", "Environment"], ["care", "Caregivers"], ["time", "Interview time"]];
 function binaryFunnel(recs) {
   const n = recs.length; const reg = recs.filter((r) => r.q38_registered_ncpwd === "yes"); const cert = reg.filter((r) => r.q37_has_certificate === "yes");
   return [{ label: "Children profiled", n }, { label: "Registered with NCPWD", n: reg.length }, { label: "Hold a disability certificate", n: cert.length }];
@@ -752,6 +690,35 @@ function binaryFunnel(recs) {
 function adlRadar(recs, id, title, sub) {
   const items = ADL.map((a) => { const t = tally(recs, a[0]); const m = {}; t.ents.forEach((e) => (m[e.k] = e.n)); const hit = (m["3"] || 0) + (m["4"] || 0); return { label: a[1], short: SHORT[a[0]], ic: ADLIC[a[0]], p: pct(hit, t.n), n: hit, den: t.n }; });
   return radarCard(id, title, sub, items, { wide: false, k: "var(--c2)" });
+}
+
+/* ---------- interview time ---------- */
+const fmtMin = (m) => (m === null || m === undefined ? "n/a" : m >= 120 ? (m / 60).toFixed(1) + " h" : Math.round(m) + " min");
+const TBANDS = [["<15", "Under 15 min", 0, 15], ["15-29", "15 to 29", 15, 30], ["30-44", "30 to 44", 30, 45], ["45-59", "45 to 59", 45, 60], ["60-89", "60 to 89", 60, 90], ["90-179", "90 min to 3 h", 90, 180], ["180+", "Over 3 h", 180, 1e9]];
+const mean = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null);
+function timeBars(id, title, meta, rows, o) {
+  o = o || {};
+  const hi = Math.max(...rows.map((r) => r.v), 1);
+  const body = rows.length ? `<div class="rows">${rows.map((r, i) => `<div class="row mark" data-hk="${i}"${tipAttr(`<b>${esc(r.label)}</b><span>${esc(r.tip)}</span>`)} tabindex="0"><span class="l"><i class="oi">${icon(r.ic || o.ic || "clock")}</i><span>${esc(r.label)}</span></span><span class="v">${esc(fmtMin(r.v))}</span><span class="t"><i style="width:${Math.max((r.v / hi) * 100, 1.5)}%;animation-delay:${i * 40}ms"></i></span></div>`).join("")}</div>` : `<div class="empty">${o.empty || EMPTY}</div>`;
+  return card(id, title, meta, body, { k: o.k, defIcon: "clock", wide: o.wide, ic: o.ic });
+}
+function timeCards(recs) {
+  const T = recs.filter((r) => r.mins !== null);
+  const v = T.map((r) => r.mins).sort((a, b) => a - b);
+  const med = median(v), avg = mean(v);
+  const q = (p) => (v.length ? v[Math.min(v.length - 1, Math.floor(p * v.length))] : null);
+  const short = T.filter((r) => r.mins < 15).length, long = T.filter((r) => r.mins >= 180).length;
+  const stat = (ic, val, lab, k, tip) => `<div class="st mark"${tipAttr(tip)} style="--k:${k}" tabindex="0"><i class="kic">${icon(ic)}</i><b>${val}</b><span>${lab}</span></div>`;
+  const stats = card("t_stats", "How long an interview takes", `<span>${T.length} of ${recs.length} interviews with a recorded time</span>`, T.length ? `<div class="stats">${stat("clock", fmtMin(med), "Median", "var(--c1)", "<b>Median</b><span>Half of interviews were faster than this</span>")}${stat("activity", fmtMin(avg), "Average", "var(--c4)", "<b>Average</b><span>Pulled up by interviews left open for a long time</span>")}${stat("check", fmtMin(v[0] ?? null), "Fastest", "var(--c5)", "<b>Fastest</b><span>Shortest recorded interview</span>")}${stat("alert", fmtMin(v[v.length - 1] ?? null), "Slowest", "var(--c2)", "<b>Slowest</b><span>Longest recorded interview</span>")}${stat("users", fmtMin(q(0.9)), "9 in 10 finish within", "var(--c3)", "<b>90th percentile</b><span>Plan fieldwork around this time</span>")}${stat("info", short + " / " + long, "Under 15 min / over 3 h", "var(--other)", "<b>Check these</b><span>Very short interviews may be incomplete. Over 3 hours usually means the form was left open.</span>")}</div>` : `<div class="empty">No timing data yet. Times come from the start and end of each submission.</div>`, { wide: true, k: "var(--c1)", ic: "clock" });
+  const bands = TBANDS.map((b) => ({ k: b[0], label: b[1], n: T.filter((r) => r.mins >= b[2] && r.mins < b[3]).length }));
+  const dist = columnCard("t_dist", "Minutes taken per interview", bands, T.length, { k: "var(--c1)", ic: "bar" });
+  const by = {}; T.forEach((r) => { const e = r.enumerator_name || ""; if (e) (by[e] = by[e] || []).push(r.mins); });
+  const rows = Object.keys(by).map((e) => ({ label: lab("enumerator", e), v: median(by[e]), tip: by[e].length + " interview" + (by[e].length > 1 ? "s" : "") + ", median " + fmtMin(median(by[e])), ic: "person" })).sort((a, b) => b.v - a.v);
+  const enumCard = timeBars("t_enum", "Median time by enumerator", `<span>${rows.length} enumerator${rows.length === 1 ? "" : "s"}</span>`, rows, { k: "var(--c4)", ic: "person", empty: "No enumerator names in this data." });
+  const sec = [["intro", "Introduction and consent"]].concat(SECTIONS);
+  const srows = sec.map((s) => { const a = recs.map((r) => r.secs[s[0]]).filter((x) => x !== undefined); return a.length ? { label: s[1], v: median(a), tip: "Median over " + a.length + " interviews, average " + fmtMin(mean(a)), ic: ({ intro: "chat", location: "pin", caregiver: "users", socio: "briefcase", child: "smile", education: "school", talent: "star", disability: "idcard", health: "health", support: "walk", at: "wheelchair", env: "mountain" })[s[0]] } : null; }).filter(Boolean);
+  const secCard = timeBars("t_sec", "Median time by section", `<span>${srows.length ? "Where the time goes" : "Needs the new form version"}</span>`, srows, { k: "var(--c3)", wide: true, ic: "layers", empty: "Section times appear once submissions come from the updated form, which records a time stamp at the start of each section." });
+  return [stats, dist, enumCard, secCard];
 }
 function tabCards(tab, recs) {
   const fc = (f, t, o) => fieldCard(recs, f, t, o);
@@ -780,6 +747,7 @@ function tabCards(tab, recs) {
       const imp = stackedCard("env_imp", "How the barriers affect daily activity", "Among children for whom the barrier occurs at least monthly", impRows, [["mild", "Mildly", "color-mix(in srgb, var(--c2) 40%, #fff)", 1], ["mod", "Moderately", "color-mix(in srgb, var(--c2) 68%, #fff)", 1], ["sev", "Severely", "var(--c2)"]], { k: "var(--c3)" });
       return [rad, freq, imp];
     }
+    case "time": return timeCards(recs);
     case "care": {
       const bands = [["<25", 0, 24], ["25-34", 25, 34], ["35-44", 35, 44], ["45-54", 45, 54], ["55-64", 55, 64], ["65+", 65, 200]].map((b) => ({ k: b[0], label: b[0] + " years", n: recs.filter((r) => r.cgAge !== null && r.cgAge >= b[1] && r.cgAge <= b[2]).length })); const bn = bands.reduce((s, b) => s + b.n, 0);
       return [fc("q11_caregiver_sex", "Sex of caregiver", { viz: "donut", centerLabel: "caregivers", k: "var(--c3)" }), columnCard("cgage", "Age of caregiver", bands, bn, { k: "var(--c4)" }), fc("q14_relationship", "Relationship to the child", { viz: "donut", k: "var(--c2)" }), fc("q13_head_of_household", "Caregiver is head of household", { viz: "donut", k: "var(--c1)" }), fc("q16_caregiver_attended_school", "Caregiver has attended school", { viz: "donut", k: "var(--c5)" }), fc("q17_caregiver_highest_grade", "Highest grade attained", { max: 8, k: "var(--c3)" }), fc("q18_has_phone", "Caregiver has a phone", { viz: "donut", k: "var(--c1)" }), fc("q20_smartphone", "Phone is a smartphone", { viz: "donut", k: "var(--c2)" }), fc("q19_no_phone_why", "Why no phone", { k: "var(--c6)" }), fc("main_activity_7d", "Main activity in the last 7 days", { max: 8, k: "var(--c4)" }), fc("econ_engaged", "Engaged in an economic activity", { viz: "donut", k: "var(--c5)" }), fc("econ_activity", "Economic activity", { k: "var(--c3)" }), fc("gov_programme", "Government social protection received", { k: "var(--c1)" }), fc("nongov_programme", "Non-government support received", { viz: "donut", k: "var(--c2)" }), fc("reduced_income", "Reduced income because of caring", { viz: "donut", k: "var(--c6)" }), fc("care_support_needed", "Support needed to care", { k: "var(--c4)" }), fc("support_group", "Belongs to a support group", { viz: "donut", k: "var(--c5)" }), fc("support_group_type", "Type of support group", { k: "var(--c3)" })];
@@ -792,8 +760,8 @@ function tabCards(tab, recs) {
 function kpis(recs) {
   const n = recs.length;
   const reg = share(recs, "q38_registered_ncpwd", "yes"), cert = share(recs, "q37_has_certificate", "yes"), sch = share(recs, "q27_attending_school", "yes"), at = share(recs, "q69_has_at", "yes"), need = share(recs, "q70_1_needs_at", "yes");
-  const med = median(recs.map((r) => r.age));
-  const k = [[n, null, "Children profiled", "one per interview", "var(--c1)", "users"], [med === null ? "n/a" : med, null, "Median age of child", "years", "var(--c4)", "smile"], [pct(reg.n, reg.den), 1, "Registered with NCPWD", `of ${reg.den} asked`, "var(--c3)", "idcard"], [pct(cert.n, cert.den), 1, "Hold a disability certificate", `of ${cert.den} registered`, "var(--c5)", "certificate"], [pct(sch.n, sch.den), 1, "Attending school", `of ${sch.den} asked`, "var(--c1)", "school"], [pct(at.n, at.den), 1, "Have an assistive device", `of ${at.den} asked`, "var(--c4)", "wheelchair"], [pct(need.n, need.den), 1, "Without a device who need one", `of ${need.den} asked`, "var(--c2)", "heart"]];
+  const med = median(recs.map((r) => r.age)); const tmed = median(recs.map((r) => r.mins));
+  const k = [[n, null, "Children profiled", "one per interview", "var(--c1)", "users"], [med === null ? "n/a" : med, null, "Median age of child", "years", "var(--c4)", "smile"], [tmed === null ? "n/a" : Math.round(tmed), null, "Median interview time", "minutes", "var(--c3)", "clock"], [pct(reg.n, reg.den), 1, "Registered with NCPWD", `of ${reg.den} asked`, "var(--c3)", "idcard"], [pct(cert.n, cert.den), 1, "Hold a disability certificate", `of ${cert.den} registered`, "var(--c5)", "certificate"], [pct(sch.n, sch.den), 1, "Attending school", `of ${sch.den} asked`, "var(--c1)", "school"], [pct(at.n, at.den), 1, "Have an assistive device", `of ${at.den} asked`, "var(--c4)", "wheelchair"], [pct(need.n, need.den), 1, "Without a device who need one", `of ${need.den} asked`, "var(--c2)", "heart"]];
   const C = 2 * Math.PI * 18;
   $("#kpis").innerHTML = k.map((x, i) => `<div class="kpi" style="--i:${i};--k:${x[4]}"${tipAttr(`<b>${esc(x[2])}</b><span>${esc(String(x[0]))}${x[1] ? "%" : ""} ${esc(x[3])}</span>`)}><i class="kic">${icon(x[5])}</i><b class="cu" data-v="${typeof x[0] === "number" ? x[0] : ""}" data-p="${x[1] ? "%" : ""}">${x[0]}${x[1] ? "%" : ""}</b>${x[1] ? `<span class="pict" aria-hidden="true">${Array.from({ length: 10 }, (_, j) => `<i class="${j < Math.round(x[0] / 10) ? "on" : ""}">${icon("person")}</i>`).join("")}</span>` : ""}<span>${x[2]}</span><small>${x[3]}</small></div>`).join("");
 }
@@ -836,7 +804,7 @@ document.addEventListener("click", (e) => { const c = e.target.closest("[data-cl
 /* ---------- rendering ---------- */
 function renderAll() {
   const recs = filtered();
-  $("#status").innerHTML = `<span class="pill${S.demo ? " demo" : ""}">${S.demo ? "Demo data, not real survey results" : "Loaded data"}</span><span>${esc(S.source)}</span>` + (S.refused ? `<span>${S.refused} refusal${S.refused > 1 ? "s" : ""} excluded</span>` : "");
+  $("#status").innerHTML = `<span class="pill${S.demo ? " demo" : ""}">${S.demo ? "No data yet" : "Loaded data"}</span><span>${esc(S.source)}</span>` + (S.refused ? `<span>${S.refused} refusal${S.refused > 1 ? "s" : ""} excluded</span>` : "");
   $("#count").textContent = `${recs.length} of ${S.all.length} interviews`;
   kpis(recs);
   $("#tabs").innerHTML = TABS.map((t) => `<button class="tab" role="tab" aria-selected="${t[0] === S.tab}" data-tab="${t[0]}">${icon(TABICON[t[0]])}${t[1]}</button>`).join("");
@@ -879,7 +847,6 @@ $("#f-from").addEventListener("change", (e) => setF("from", e.target.value));
 $("#f-to").addEventListener("change", (e) => setF("to", e.target.value));
 $("#reset").addEventListener("click", () => { S.filt = { sub: "", ward: "", sex: "", age: "", from: "", to: "" }; buildFilters(); renderAll(); });
 $("#pick").addEventListener("click", () => $("#file").click());
-$("#demo").addEventListener("click", () => ingest(makeDemo(160), "Synthetic records generated from the form structure", true));
 function readFile(file) {
   const fr = new FileReader();
   fr.onload = () => {
@@ -935,12 +902,12 @@ $("#dlg-f").addEventListener("submit", async (e) => {
 });
 
 $("#theme").addEventListener("click", () => { const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; document.documentElement.dataset.theme = dark ? "light" : "dark"; });
-/* start: look for a data.csv published next to the page, else show demo data */
+/* start: look for a data.csv published next to the page, else start empty */
 (async () => {
   try {
     const res = await fetch("data.csv", { cache: "no-store" });
     if (res.ok) { const buf = await res.arrayBuffer(); const wb = XLSX.read(buf, { type: "array", cellDates: true }); const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true }); if (rows.length) { ingest(rows, "data.csv (" + rows.length + " rows)", false); return; } }
   } catch (e) { /* no published data */ }
-  ingest(makeDemo(160), "Synthetic records generated from the form structure", true);
+  ingest([], "No data loaded yet. Connect to Inform or load an export file.", true);
 })();
 </script>
