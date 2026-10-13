@@ -222,6 +222,26 @@ dialog input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; 
 @container (max-width: 700px) { .rad-wrap { grid-template-columns: 1fr; } }
 .rank .row .t i { background: linear-gradient(90deg, var(--c2), color-mix(in srgb, var(--c2) 70%, #fff)); }
 @container (max-width: 430px) { .donut-wrap { grid-template-columns: 1fr; justify-items: center; } .donut-wrap .donut { max-width: 190px; } .donut-wrap .legend { width: 100%; } }
+
+/* icons */
+.ic { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: -0.14em; }
+.card h3 { display: flex; align-items: center; gap: 10px; }
+.hi { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; font-size: 18px; flex: none; color: var(--k, var(--c1)); background: color-mix(in srgb, var(--k, var(--c1)) 15%, var(--surface)); transition: transform .2s; }
+.card:hover .hi { transform: rotate(-6deg) scale(1.1); }
+.kic { grid-column: 1; grid-row: 1; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; font-size: 20px; color: #fff; background: var(--k, var(--c1)); box-shadow: 0 4px 10px color-mix(in srgb, var(--k, var(--c1)) 40%, transparent); margin-bottom: 8px; transition: transform .2s; }
+.kpi:hover .kic { transform: rotate(-8deg) scale(1.12); }
+.kpi:nth-child(2) .kic, .kpi:nth-child(6) .kic { color: #1a1300; }
+.kpi b { grid-row: 2; } .kpi .ring { grid-row: 1 / 3; align-self: center; } .kpi span { grid-row: 3; } .kpi small { grid-row: 4; }
+.tab { display: inline-flex; align-items: center; gap: 7px; }
+.tab .ic { font-size: 16px; }
+.btn { display: inline-flex; align-items: center; gap: 7px; }
+.btn .ic { font-size: 16px; }
+.lbl { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.lbl .ic, .row .l .ic { color: var(--c2); font-size: 16px; margin-right: 6px; }
+.lbl .ic { margin-right: 0; }
+.stk-row .lbl .ic { color: var(--c1); }
+.tilemap .tmi { position: absolute; right: 10px; top: 10px; font-size: 16px; opacity: .75; }
+.link .ic { font-size: 13px; }
 </style>
 
 <div class="band"><div class="band-in">
@@ -231,10 +251,10 @@ dialog input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; 
   </div>
   <div class="loader">
     <input type="file" id="file" accept=".csv,.xlsx,.xls" hidden>
-    <button class="btn" id="connect" type="button">Connect to Inform</button>
-    <button class="btn ghost" id="pick" type="button">Load export file</button>
-    <button class="btn ghost" id="demo" type="button">Show demo data</button>
-    <button class="btn ghost icon" id="theme" type="button" aria-label="Switch light and dark theme" title="Switch light and dark theme">&#9680;</button>
+    <button class="btn" id="connect" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></svg><span>Connect to Inform</span></button>
+    <button class="btn ghost" id="pick" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14h6M9 17h4"/></svg><span>Load export file</span></button>
+    <button class="btn ghost" id="demo" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/></svg><span>Show demo data</span></button>
+    <button class="btn ghost icon" id="theme" type="button" aria-label="Switch light and dark theme" title="Switch light and dark theme"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
   </div>
 </div></div>
 
@@ -453,6 +473,58 @@ const share = (recs, f, code) => { const t = tally(recs, f); const hit = t.ents.
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 const median = (a) => { a = a.filter((x) => x !== null).sort((x, y) => x - y); if (!a.length) return null; const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
 
+/* ---------- icon set (inline SVG, 24px grid, stroke follows text colour) ---------- */
+const IC = {
+  users: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.2c2.3.3 4 2.2 4 4.8"/>',
+  person: '<circle cx="12" cy="7" r="3.5"/><path d="M5 21c0-4 3.1-7 7-7s7 3 7 7"/>',
+  smile: '<circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9.5h.01M15 9.5h.01"/>',
+  idcard: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.5-1.5 1.8-2 3-2s2.5.5 3 2M14 10h4M14 14h4"/>',
+  certificate: '<circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/>',
+  school: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5"/>',
+  wheelchair: '<circle cx="10" cy="4" r="1.6"/><path d="M10 7v6h5l3 6M8 11h5M7 14a5 5 0 1 0 7 6"/>',
+  heart: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
+  activity: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  pin: '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  pie: '<path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/>',
+  bar: '<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
+  funnel: '<path d="M3 4h18l-7 8v7l-4 2v-9z"/>',
+  grid: '<rect x="3" y="3" width="8" height="10" rx="1.5"/><rect x="13" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="15" width="8" height="6" rx="1.5"/>',
+  radar: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 8l4 2.3v4.4L12 17l-4-2.3v-4.4z"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
+  layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/>',
+  wallet: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  health: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+  alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+  briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>',
+  book: '<path d="M4 4h6a3 3 0 0 1 2 1 3 3 0 0 1 2-1h6v15h-6a3 3 0 0 0-2 1 3 3 0 0 0-2-1H4z"/>',
+  moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  plug: '<path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14h6M9 17h4"/>',
+  flask: '<path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/>',
+  dash: '<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/>',
+  utensils: '<path d="M6 3v7a2 2 0 0 0 2 2v9M10 3v7M4 3v6M17 3c-2 2-2.5 5-2 8h4V3zM17 13v8"/>',
+  droplet: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
+  shirt: '<path d="M8 3L3 6l2.5 4L8 9v12h8V9l2.5 1L21 6l-5-3a4 4 0 0 1-8 0z"/>',
+  toilet: '<path d="M7 3h10v6H7z"/><path d="M5 9h14c0 5-2 8-5 8v4h-4v-4c-3 0-5-3-5-8z"/>',
+  walk: '<circle cx="13" cy="4.5" r="1.8"/><path d="M9 21l3-7-2-2 1-5 4 2 2 3M12 14l3 3v4"/>',
+  door: '<path d="M5 21V4a1 1 0 0 1 1-1h8l4 2v16M3 21h18M13 12h.01"/>',
+  bus: '<rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16M8 21v-4M16 21v-4M8 14h.01M16 14h.01"/>',
+  bag: '<path d="M5 8h14l1 13H4z"/><path d="M9 8a3 3 0 0 1 6 0"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+  mountain: '<path d="M3 20l6-11 4 6 3-4 5 9z"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>'
+};
+const icon = (n, cls) => `<svg class="ic${cls ? " " + cls : ""}" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || IC.info}</svg>`;
+const badge = (n) => `<span class="hi">${icon(n)}</span>`;
+const ID_ICON = { q23_child_sex: "person", ageband: "clock", cgage: "clock", q39_cert_category: "certificate", q41_cert_disability: "grid", ward: "pin", q25_identified_by: "health", q26_age_identified: "clock", q38_registered_ncpwd: "idcard", q37_has_certificate: "certificate", q43_cert_uses: "certificate", q44a_not_registered_why: "alert", q45_assessment_support: "health", q46_comm_improve: "chat", q27_attending_school: "school", q27_no_school_why: "alert", q28_earc_assessed: "school", q29_school_level: "school", q30_school_type: "school", q31_has_talent: "star", q32_talents: "star", q34_in_sports_group: "star", q47_welfare_clinic: "health", q47_no_clinic_why: "alert", q48_milestones_discussed: "chat", q69_has_at: "wheelchair", q70_1_needs_at: "wheelchair", q70_at_state: "wheelchair", q70_at_have: "wheelchair", q70_2_at_needed: "wheelchair", q71_at_challenges: "alert", q72_at_payer: "wallet", q73_at_cost: "wallet", q74_extra_help: "heart", fn_reg: "funnel", fn_at: "wheelchair", adl_radar: "radar", adl: "walk", env_radar: "radar", env: "mountain", env_imp: "alert", map: "pin", q11_caregiver_sex: "person", q14_relationship: "users", q13_head_of_household: "home", q16_caregiver_attended_school: "book", q17_caregiver_highest_grade: "book", q18_has_phone: "phone", q20_smartphone: "phone", q19_no_phone_why: "phone", main_activity_7d: "briefcase", econ_engaged: "briefcase", econ_activity: "briefcase", gov_programme: "shield", nongov_programme: "shield", reduced_income: "wallet", care_support_needed: "heart", support_group: "users", support_group_type: "users" };
+const ADLIC = { q52_eating: "utensils", q54_washing: "droplet", q55_dressing: "shirt", q56_toilet: "toilet", q57_moving_house: "walk", q58_outside_house: "door", q59_transport: "bus", q60_shopping: "bag", q61_water: "droplet", q63_education_access: "school", q65_communicating: "chat", q66_caring_family: "heart", q68_community: "users", env_transport: "bus", env_natural: "mountain", env_info: "info", env_att_home: "home", env_att_school: "school", env_att_community: "users" };
+const TABICON = { overview: "dash", disability: "idcard", edu: "school", at: "wheelchair", adl: "walk", env: "mountain", care: "users" };
+
 /* ---------- visual helpers ---------- */
 const CI = (i) => (typeof i === "string" ? i : i < 0 ? "var(--other)" : `var(--c${(i % 6) + 1})`);
 const LIGHT_FILL = new Set([3]); /* amber (c4) needs dark text */
@@ -466,7 +538,7 @@ function fold(ents, k) {
 }
 function card(id, title, meta, body, o) {
   o = o || {};
-  return `<section class="card chart${o.wide ? " wide" : ""}${o.span2 ? " span2" : ""}" data-id="${id}" style="--k:${o.k || "var(--c1)"}"><h3>${esc(title)}</h3><div class="meta">${meta}</div>${body}</section>`;
+  return `<section class="card chart${o.wide ? " wide" : ""}${o.span2 ? " span2" : ""}" data-id="${id}" style="--k:${o.k || "var(--c1)"}"><h3>${badge(o.ic || ID_ICON[id] || o.defIcon || "list")}<span>${esc(title)}</span></h3><div class="meta">${meta}</div>${body}</section>`;
 }
 const toggles = (id, ents, max, extra) => {
   const more = ents && ents.length > max;
@@ -488,7 +560,7 @@ function barsBody(ents, den, max, id, o) {
 function barCard(id, title, ents, den, o) {
   o = o || {}; const max = o.max || 10;
   const body = S.tbl[id] ? tableBody(ents, den) : barsBody(ents, den, max, id, o);
-  return card(id, title, `<span>${den} answered</span>${toggles(id, ents, max)}`, body, { ...o, k: o.k });
+  return card(id, title, `<span>${den} answered</span>${toggles(id, ents, max)}`, body, { ...o, defIcon: "list" });
 }
 
 /* donut: up to 6 slices, legend linked to slices, centre shows the hovered slice */
@@ -508,7 +580,7 @@ function donutBody(ents, den, o) {
 function donutCard(id, title, ents, den, o) {
   o = o || {};
   const body = S.tbl[id] ? tableBody(ents, den) : donutBody(ents, den, o);
-  return card(id, title, `<span>${den} answered</span>${toggles(id, null, 0)}`, body, o);
+  return card(id, title, `<span>${den} answered</span>${toggles(id, null, 0)}`, body, { ...o, defIcon: "pie" });
 }
 
 /* columns (ordered categories) */
@@ -522,21 +594,21 @@ function columnBody(ents, den, o) {
 }
 function columnCard(id, title, ents, den, o) {
   o = o || {}; const body = S.tbl[id] ? tableBody(ents, den) : columnBody(ents, den, o);
-  return card(id, title, `<span>${den} answered</span>${toggles(id, null, 0)}`, body, o);
+  return card(id, title, `<span>${den} answered</span>${toggles(id, null, 0)}`, body, { ...o, defIcon: "bar" });
 }
 
 /* stacked 100% rows (levels per item) */
 function stackedCard(id, title, sub, rows, cols, o) {
   o = o || {};
-  const data = rows.map((r) => { if (r.m) return { label: r.label, m: r.m, n: r.n }; const t = tally(r.recs, r.f); const m = {}; t.ents.forEach((e) => (m[e.k] = e.n)); return { label: r.label, m, n: t.n }; });
+  const data = rows.map((r) => { if (r.m) return { label: r.label, ic: r.ic, m: r.m, n: r.n }; const t = tally(r.recs, r.f); const m = {}; t.ents.forEach((e) => (m[e.k] = e.n)); return { label: r.label, ic: r.ic, m, n: t.n }; });
   if (S.tbl[id]) {
     const th = cols.map((c) => `<th class="num">${esc(c[1])}</th>`).join("");
     const tb = data.map((d) => `<tr><td>${esc(d.label)}</td>${cols.map((c) => `<td class="num">${pct(d.m[c[0]] || 0, d.n)}%</td>`).join("")}<td class="num">${d.n}</td></tr>`).join("");
-    return card(id, title, `<span>${esc(sub)}</span>${toggles(id, null, 0)}`, `<div class="tbl-wrap"><table><thead><tr><th></th>${th}<th class="num">Asked</th></tr></thead><tbody>${tb}</tbody></table></div>`, { wide: true, k: o.k });
+    return card(id, title, `<span>${esc(sub)}</span>${toggles(id, null, 0)}`, `<div class="tbl-wrap"><table><thead><tr><th></th>${th}<th class="num">Asked</th></tr></thead><tbody>${tb}</tbody></table></div>`, { wide: true, k: o.k, defIcon: "layers" });
   }
   const legend = `<div class="legend-h">${cols.map((c, i) => `<span class="lg mark" data-hk="${i}"><i style="background:${CI(c[2])}"></i><span>${esc(c[1])}</span></span>`).join("")}</div>`;
-  const body = data.map((d) => `<div class="stk-row"><span>${esc(d.label)}</span><div class="stk-bar">${cols.map((c, i) => { const n = d.m[c[0]] || 0, p = pct(n, d.n); return n ? `<span class="seg mark${c[3] ? " dk" : ""}" data-hk="${i}" style="width:${(n / d.n) * 100}%;background:${CI(c[2])};animation-delay:${i * 60}ms"${tipAttr(tipHtml(d.label + ": " + c[1], n, d.n))}>${p >= 9 ? p + "%" : ""}</span>` : ""; }).join("")}</div><span class="n">${d.n} asked</span></div>`).join("");
-  return card(id, title, `<span>${esc(sub)}</span>${toggles(id, null, 0)}`, `<div class="chart-in">${legend}<div class="stk">${body}</div></div>`, { wide: true, k: o.k });
+  const body = data.map((d) => `<div class="stk-row"><span class="lbl">${d.ic ? icon(d.ic) : ""}<span>${esc(d.label)}</span></span><div class="stk-bar">${cols.map((c, i) => { const n = d.m[c[0]] || 0, p = pct(n, d.n); return n ? `<span class="seg mark${c[3] ? " dk" : ""}" data-hk="${i}" style="width:${(n / d.n) * 100}%;background:${CI(c[2])};animation-delay:${i * 60}ms"${tipAttr(tipHtml(d.label + ": " + c[1], n, d.n))}>${p >= 9 ? p + "%" : ""}</span>` : ""; }).join("")}</div><span class="n">${d.n} asked</span></div>`).join("");
+  return card(id, title, `<span>${esc(sub)}</span>${toggles(id, null, 0)}`, `<div class="chart-in">${legend}<div class="stk">${body}</div></div>`, { wide: true, k: o.k, defIcon: "layers" });
 }
 
 /* radar */
@@ -551,8 +623,8 @@ function radarCard(id, title, sub, items, o) {
   const poly = `<polygon class="poly" points="${items.map((x, i) => pt(i, x.p).map((v) => v.toFixed(1)).join(",")).join(" ")}"/>`;
   const dots = items.map((x, i) => { const p = pt(i, x.p); return `<circle class="vx mark" tabindex="0" r="5" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}"${tipAttr(`<b>${esc(x.label)}</b><span>${x.p}% (${x.n} of ${x.den})</span>`)}/>`; }).join("");
   const rank = items.map((x, i) => ({ ...x, i })).sort((a, b) => b.p - a.p);
-  const list = `<div class="rows rank">${rank.map((x) => `<div class="row mark" data-hk="${x.i}" tabindex="0"${tipAttr(`<b>${esc(x.label)}</b><span>${x.p}% (${x.n} of ${x.den})</span>`)}><span class="l">${esc(x.label)}</span><span class="v">${x.p}%</span><span class="t"><i style="width:${Math.max(x.p, x.n ? 1.5 : 0)}%"></i></span></div>`).join("")}</div>`;
-  return card(id, title, `<span>${esc(sub)}</span>`, `<div class="rad-wrap"><div class="svgwrap"><svg class="radar" viewBox="0 0 420 390" role="img" aria-label="${esc(items.map((x) => x.short + " " + x.p + "%").join(", "))}">${rings}${axes}${poly}${labels}${dots}</svg></div>${list}</div>`, { ...o, wide: true });
+  const list = `<div class="rows rank">${rank.map((x) => `<div class="row mark" data-hk="${x.i}" tabindex="0"${tipAttr(`<b>${esc(x.label)}</b><span>${x.p}% (${x.n} of ${x.den})</span>`)}><span class="l">${x.ic ? icon(x.ic) : ""}${esc(x.label)}</span><span class="v">${x.p}%</span><span class="t"><i style="width:${Math.max(x.p, x.n ? 1.5 : 0)}%"></i></span></div>`).join("")}</div>`;
+  return card(id, title, `<span>${esc(sub)}</span>`, `<div class="rad-wrap"><div class="svgwrap"><svg class="radar" viewBox="0 0 420 390" role="img" aria-label="${esc(items.map((x) => x.short + " " + x.p + "%").join(", "))}">${rings}${axes}${poly}${labels}${dots}</svg></div>${list}</div>`, { ...o, wide: true, defIcon: "radar" });
 }
 
 /* funnel */
@@ -560,7 +632,7 @@ function funnelCard(id, title, sub, steps, o) {
   if (!steps.length || !steps[0].n) return card(id, title, `<span>${esc(sub)}</span>`, EMPTY, o);
   const top = steps[0].n;
   const body = steps.map((s, i) => { const w = Math.max((s.n / top) * 100, 12); const prev = i ? steps[i - 1].n : s.n; return `<div class="fn-step mark" data-hk="${i}" tabindex="0"${tipAttr(`<b>${esc(s.label)}</b><span>${s.n} children</span><span>${pct(s.n, top)}% of the first step${i ? ", " + pct(s.n, prev) + "% of the step before" : ""}</span>`)}><div class="fn-bar${LIGHT_FILL.has(i) ? " dk" : ""}" style="width:${w}%;background:${CI(i)};animation-delay:${i * 120}ms">${s.n}</div><div class="fn-l"><b>${esc(s.label)}</b>${i ? ` · ${pct(s.n, prev)}% of previous` : ""}</div></div>`; }).join("");
-  return card(id, title, `<span>${esc(sub)}</span>`, `<div class="fn">${body}</div>`, o);
+  return card(id, title, `<span>${esc(sub)}</span>`, `<div class="fn">${body}</div>`, { ...o, defIcon: "funnel" });
 }
 
 /* treemap: tile area = number of children */
@@ -584,7 +656,7 @@ function treemapBody(ents, den, k) {
 }
 function treemapCard(id, title, ents, den, o) {
   o = o || {}; const body = S.tbl[id] ? tableBody(ents, den) : treemapBody(ents, den, o.top);
-  return card(id, title, `<span>${den} answered</span>${toggles(id, null, 0)}`, body, o);
+  return card(id, title, `<span>${den} answered</span>${toggles(id, null, 0)}`, body, { ...o, defIcon: "grid" });
 }
 
 /* schematic tile map of Kisumu County's sub-counties (relative positions, not to scale) */
@@ -595,7 +667,7 @@ function mapCard(recs) {
   const ramp = (t) => { const a = [207, 233, 247], b = [42, 159, 214], c = [5, 42, 110]; const m = t < 0.5 ? [a, b, t * 2] : [b, c, (t - 0.5) * 2]; return `rgb(${[0, 1, 2].map((i) => Math.round(m[0][i] + (m[1][i] - m[0][i]) * m[2])).join(",")})`; };
   const tiles = keys.map((k, i) => { const rs = by[k], n = rs.length, t = n / hi; const reg = share(rs, "q38_registered_ncpwd", "yes"), at = share(rs, "q69_has_at", "yes"); const med = median(rs.map((r) => r.age));
     const tip = `<b>${esc(lab("sub_county", k))}</b><span>${n} interviews · ${pct(n, tot)}% of all</span><span>Registered with NCPWD: ${pct(reg.n, reg.den)}%</span><span>Have a device: ${pct(at.n, at.den)}%</span><span>Median age: ${med === null ? "n/a" : med}</span>`;
-    return `<button type="button" class="tilemap mark${n ? "" : " empty-t"}${t < 0.34 && n ? " lt" : ""}${S.filt.sub === k ? " sel" : ""}" style="grid-column:${TILEPOS[k][0]};grid-row:${TILEPOS[k][1]};--s:${i};${n ? "--tc:" + ramp(t) : ""}" data-filter="sub:${k}" data-hk="${i}"${tipAttr(tip)}><span>${esc(lab("sub_county", k))}</span><b>${n}</b><small>${pct(n, tot)}% of interviews</small></button>`; }).join("");
+    return `<button type="button" class="tilemap mark${n ? "" : " empty-t"}${t < 0.34 && n ? " lt" : ""}${S.filt.sub === k ? " sel" : ""}" style="grid-column:${TILEPOS[k][0]};grid-row:${TILEPOS[k][1]};--s:${i};${n ? "--tc:" + ramp(t) : ""}" data-filter="sub:${k}" data-hk="${i}"${tipAttr(tip)}>${icon("pin", "tmi")}<span>${esc(lab("sub_county", k))}</span><b>${n}</b><small>${pct(n, tot)}% of interviews</small></button>`; }).join("");
   const body = `<div class="map-wrap chart"><div class="tmap">${tiles}</div><div class="map-key"><span>Fewer</span><i></i><span>More interviews</span><span style="margin-left:auto">Schematic layout, not to scale. Click a tile to filter.</span></div></div>`;
   return card("map", "Where the interviews are", `<span>Kisumu County sub-counties</span>`, body, { span2: true, k: "var(--c2)" });
 }
@@ -614,7 +686,7 @@ const SHORT = { q52_eating: "Eating", q54_washing: "Washing", q55_dressing: "Dre
 function timelineCard(recs) {
   const c = {}; recs.forEach((r) => { if (r.date) c[dkey(r.date)] = (c[dkey(r.date)] || 0) + 1; });
   const days = Object.keys(c).sort();
-  if (!days.length) return `<section class="card chart wide" style="--k:var(--c1)"><h3>Interviews per day</h3><div class="empty">No interview dates for the current filters.</div></section>`;
+  if (!days.length) return `<section class="card chart wide" style="--k:var(--c1)"><h3>${badge("activity")}<span>Interviews per day</span></h3><div class="empty">No interview dates for the current filters.</div></section>`;
   const d0 = new Date(days[0]), d1 = new Date(days[days.length - 1]); const pts = [];
   for (let d = new Date(d0); d <= d1; d = new Date(d.getTime() + 86400000)) pts.push({ k: dkey(d), n: c[dkey(d)] || 0 });
   const W = 1100, H = 210, L = 34, R = 12, T = 12, B = 26; const mx = Math.max(...pts.map((p) => p.n), 1);
@@ -627,7 +699,7 @@ function timelineCard(recs) {
   const xl = pts.map((p, i) => (i % step === 0 || i === pts.length - 1 ? `<text class="axis-text" x="${X(i)}" y="${H - 8}" text-anchor="${i === pts.length - 1 && pts.length > 1 ? "end" : i === 0 && pts.length > 1 ? "start" : "middle"}">${p.k.slice(5)}</text>` : "")).join("");
   const last = pts.length - 1;
   const total = pts.reduce((s, p) => s + p.n, 0);
-  return `<section class="card chart wide" style="--k:var(--c1)"><h3>Interviews per day</h3><div class="meta"><span>${total} interviews, ${pts.length} day${pts.length > 1 ? "s" : ""}</span></div><div class="readout" id="tl-read">Hover over the chart for a daily count.</div><div class="svgwrap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Interviews per day, peak ${mx}" id="tl" data-pts='${JSON.stringify(pts.map((p) => [p.k, p.n]))}' data-l="${L}" data-r="${R}" data-w="${W}">${grid}${xl}<defs><linearGradient id="tlg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--c1)" stop-opacity=".45"/><stop offset="1" stop-color="var(--c1)" stop-opacity=".04"/></linearGradient></defs><path d="${area}" fill="url(#tlg)"/><path d="${line}" fill="none" stroke="var(--c1)" stroke-width="3" stroke-linejoin="round"/><line id="tl-x" y1="${T}" y2="${H - B}" stroke="var(--ink-3)" stroke-width="1" visibility="hidden"/><circle id="tl-dot" r="4" fill="var(--bar)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/><circle cx="${X(last)}" cy="${Y(pts[last].n)}" r="4" fill="var(--bar)" stroke="var(--surface)" stroke-width="2"/></svg></div></section>`;
+  return `<section class="card chart wide" style="--k:var(--c1)"><h3>${badge("activity")}<span>Interviews per day</span></h3><div class="meta"><span>${total} interviews, ${pts.length} day${pts.length > 1 ? "s" : ""}</span></div><div class="readout" id="tl-read">Hover over the chart for a daily count.</div><div class="svgwrap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Interviews per day, peak ${mx}" id="tl" data-pts='${JSON.stringify(pts.map((p) => [p.k, p.n]))}' data-l="${L}" data-r="${R}" data-w="${W}">${grid}${xl}<defs><linearGradient id="tlg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--c1)" stop-opacity=".45"/><stop offset="1" stop-color="var(--c1)" stop-opacity=".04"/></linearGradient></defs><path d="${area}" fill="url(#tlg)"/><path d="${line}" fill="none" stroke="var(--c1)" stroke-width="3" stroke-linejoin="round"/><line id="tl-x" y1="${T}" y2="${H - B}" stroke="var(--ink-3)" stroke-width="1" visibility="hidden"/><circle id="tl-dot" r="4" fill="var(--bar)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/><circle cx="${X(last)}" cy="${Y(pts[last].n)}" r="4" fill="var(--bar)" stroke="var(--surface)" stroke-width="2"/></svg></div></section>`;
 }
 function bindTimeline() {
   const svg = $("#tl"); if (!svg) return;
@@ -653,7 +725,7 @@ function binaryFunnel(recs) {
   return [{ label: "Children profiled", n }, { label: "Registered with NCPWD", n: reg.length }, { label: "Hold a disability certificate", n: cert.length }];
 }
 function adlRadar(recs, id, title, sub) {
-  const items = ADL.map((a) => { const t = tally(recs, a[0]); const m = {}; t.ents.forEach((e) => (m[e.k] = e.n)); const hit = (m["3"] || 0) + (m["4"] || 0); return { label: a[1], short: SHORT[a[0]], p: pct(hit, t.n), n: hit, den: t.n }; });
+  const items = ADL.map((a) => { const t = tally(recs, a[0]); const m = {}; t.ents.forEach((e) => (m[e.k] = e.n)); const hit = (m["3"] || 0) + (m["4"] || 0); return { label: a[1], short: SHORT[a[0]], ic: ADLIC[a[0]], p: pct(hit, t.n), n: hit, den: t.n }; });
   return radarCard(id, title, sub, items, { wide: false, k: "var(--c2)" });
 }
 function tabCards(tab, recs) {
@@ -673,13 +745,13 @@ function tabCards(tab, recs) {
       return [gap, fc("q69_has_at", "Child has an assistive device", { viz: "donut", centerLabel: "asked", k: "var(--c1)" }), fc("q70_1_needs_at", "Child without a device needs one", { viz: "donut", centerLabel: "without device", k: "var(--c2)" }), fc("q70_at_state", "Condition of the device", { viz: "donut", centerLabel: "devices", k: "var(--c4)" }), fc("q70_at_have", "Devices the child has", { max: 8, k: "var(--c1)" }), fc("q70_2_at_needed", "Devices needed", { max: 8, k: "var(--c2)" }), fc("q71_at_challenges", "Challenges getting assistive technology", { k: "var(--c6)" }), fc("q72_at_payer", "Who paid", { k: "var(--c3)" }), fc("q73_at_cost", "Cost of the device (KES)", { viz: "column", order: "list", span2: true, k: "var(--c4)" }), fc("q74_extra_help", "Additional assistance the child needs", { k: "var(--c5)" })];
     }
     case "adl":
-      return [adlRadar(recs, "adl_radar", "Where children need the most help", "Share who need someone's help or cannot do it at all"), stackedCard("adl", "How children manage daily activities", "Share of children by how they manage each activity", ADL.map((a) => ({ f: a[0], label: a[1], recs })), [["1", "Alone, no device", "var(--c1)"], ["2", "Alone, with device", "color-mix(in srgb, var(--c1) 50%, #fff)", 1], ["3", "Needs someone", "var(--c4)", 1], ["4", "Cannot, even with help", "var(--c2)"]], { k: "var(--c1)" })];
+      return [adlRadar(recs, "adl_radar", "Where children need the most help", "Share who need someone's help or cannot do it at all"), stackedCard("adl", "How children manage daily activities", "Share of children by how they manage each activity", ADL.map((a) => ({ f: a[0], label: a[1], ic: ADLIC[a[0]], recs })), [["1", "Alone, no device", "var(--c1)"], ["2", "Alone, with device", "color-mix(in srgb, var(--c1) 50%, #fff)", 1], ["3", "Needs someone", "var(--c4)", 1], ["4", "Cannot, even with help", "var(--c2)"]], { k: "var(--c1)" })];
     case "env": {
       const ENV = [["env_transport", "Transport availability and access"], ["env_natural", "Natural environment (terrain, climate)"], ["env_info", "Information not in a usable format"], ["env_att_home", "Attitudes of others at home"], ["env_att_school", "Attitudes at school or health service"], ["env_att_community", "Attitudes in the community"]];
-      const items = ENV.map((a) => { const t = tally(recs, a[0] + "_freq"); const m = {}; t.ents.forEach((e) => (m[e.k] = e.n)); const hit = (m["1"] || 0) + (m["2"] || 0) + (m["3"] || 0); return { label: a[1], short: SHORT[a[0]], p: pct(hit, t.n), n: hit, den: t.n }; });
+      const items = ENV.map((a) => { const t = tally(recs, a[0] + "_freq"); const m = {}; t.ents.forEach((e) => (m[e.k] = e.n)); const hit = (m["1"] || 0) + (m["2"] || 0) + (m["3"] || 0); return { label: a[1], short: SHORT[a[0]], ic: ADLIC[a[0]], p: pct(hit, t.n), n: hit, den: t.n }; });
       const rad = radarCard("env_radar", "Barriers that bite at least monthly", "Share of children facing each barrier every day, weekly or monthly", items, { k: "var(--c2)" });
-      const freq = stackedCard("env", "How often these barriers were a problem in the last 12 months", "Share of children by frequency of the barrier", ENV.map((a) => ({ f: a[0] + "_freq", label: a[1], recs })), [["1", "Every day", "var(--c2)"], ["2", "Weekly", "color-mix(in srgb, var(--c2) 68%, #fff)", 1], ["3", "Monthly", "color-mix(in srgb, var(--c2) 40%, #fff)", 1], ["4", "Never", "var(--c1)"], ["5", "Not applicable", "var(--other)"]], { k: "var(--c1)" });
-      const impRows = ENV.filter((a) => F[a[0] + "_impact"]).map((a) => { const t = tally(recs, a[0] + "_impact"); const m = { mild: 0, mod: 0, sev: 0 }; t.ents.forEach((e) => { if (/^mildly/i.test(e.label)) m.mild += e.n; else if (/^moderately/i.test(e.label)) m.mod += e.n; else if (/^severely/i.test(e.label)) m.sev += e.n; }); return { label: a[1], m, n: m.mild + m.mod + m.sev }; });
+      const freq = stackedCard("env", "How often these barriers were a problem in the last 12 months", "Share of children by frequency of the barrier", ENV.map((a) => ({ f: a[0] + "_freq", label: a[1], ic: ADLIC[a[0]], recs })), [["1", "Every day", "var(--c2)"], ["2", "Weekly", "color-mix(in srgb, var(--c2) 68%, #fff)", 1], ["3", "Monthly", "color-mix(in srgb, var(--c2) 40%, #fff)", 1], ["4", "Never", "var(--c1)"], ["5", "Not applicable", "var(--other)"]], { k: "var(--c1)" });
+      const impRows = ENV.filter((a) => F[a[0] + "_impact"]).map((a) => { const t = tally(recs, a[0] + "_impact"); const m = { mild: 0, mod: 0, sev: 0 }; t.ents.forEach((e) => { if (/^mildly/i.test(e.label)) m.mild += e.n; else if (/^moderately/i.test(e.label)) m.mod += e.n; else if (/^severely/i.test(e.label)) m.sev += e.n; }); return { label: a[1], ic: ADLIC[a[0]], m, n: m.mild + m.mod + m.sev }; });
       const imp = stackedCard("env_imp", "How the barriers affect daily activity", "Among children for whom the barrier occurs at least monthly", impRows, [["mild", "Mildly", "color-mix(in srgb, var(--c2) 40%, #fff)", 1], ["mod", "Moderately", "color-mix(in srgb, var(--c2) 68%, #fff)", 1], ["sev", "Severely", "var(--c2)"]], { k: "var(--c3)" });
       return [rad, freq, imp];
     }
@@ -696,9 +768,9 @@ function kpis(recs) {
   const n = recs.length;
   const reg = share(recs, "q38_registered_ncpwd", "yes"), cert = share(recs, "q37_has_certificate", "yes"), sch = share(recs, "q27_attending_school", "yes"), at = share(recs, "q69_has_at", "yes"), need = share(recs, "q70_1_needs_at", "yes");
   const med = median(recs.map((r) => r.age));
-  const k = [[n, null, "Children profiled", "one per interview", "var(--c1)"], [med === null ? "n/a" : med, null, "Median age of child", "years", "var(--c4)"], [pct(reg.n, reg.den), 1, "Registered with NCPWD", `of ${reg.den} asked`, "var(--c3)"], [pct(cert.n, cert.den), 1, "Hold a disability certificate", `of ${cert.den} registered`, "var(--c5)"], [pct(sch.n, sch.den), 1, "Attending school", `of ${sch.den} asked`, "var(--c1)"], [pct(at.n, at.den), 1, "Have an assistive device", `of ${at.den} asked`, "var(--c4)"], [pct(need.n, need.den), 1, "Without a device who need one", `of ${need.den} asked`, "var(--c2)"]];
+  const k = [[n, null, "Children profiled", "one per interview", "var(--c1)", "users"], [med === null ? "n/a" : med, null, "Median age of child", "years", "var(--c4)", "smile"], [pct(reg.n, reg.den), 1, "Registered with NCPWD", `of ${reg.den} asked`, "var(--c3)", "idcard"], [pct(cert.n, cert.den), 1, "Hold a disability certificate", `of ${cert.den} registered`, "var(--c5)", "certificate"], [pct(sch.n, sch.den), 1, "Attending school", `of ${sch.den} asked`, "var(--c1)", "school"], [pct(at.n, at.den), 1, "Have an assistive device", `of ${at.den} asked`, "var(--c4)", "wheelchair"], [pct(need.n, need.den), 1, "Without a device who need one", `of ${need.den} asked`, "var(--c2)", "heart"]];
   const C = 2 * Math.PI * 18;
-  $("#kpis").innerHTML = k.map((x, i) => `<div class="kpi" style="--i:${i};--k:${x[4]}"${tipAttr(`<b>${esc(x[2])}</b><span>${esc(String(x[0]))}${x[1] ? "%" : ""} ${esc(x[3])}</span>`)}><b class="cu" data-v="${typeof x[0] === "number" ? x[0] : ""}" data-p="${x[1] ? "%" : ""}">${x[0]}${x[1] ? "%" : ""}</b>${x[1] ? `<svg class="ring" viewBox="0 0 44 44" aria-hidden="true"><circle class="tr" cx="22" cy="22" r="18"/><circle class="fg" cx="22" cy="22" r="18" stroke-dasharray="${((x[0] / 100) * C).toFixed(1)} ${C.toFixed(1)}"/></svg>` : ""}<span>${x[2]}</span><small>${x[3]}</small></div>`).join("");
+  $("#kpis").innerHTML = k.map((x, i) => `<div class="kpi" style="--i:${i};--k:${x[4]}"${tipAttr(`<b>${esc(x[2])}</b><span>${esc(String(x[0]))}${x[1] ? "%" : ""} ${esc(x[3])}</span>`)}><i class="kic">${icon(x[5])}</i><b class="cu" data-v="${typeof x[0] === "number" ? x[0] : ""}" data-p="${x[1] ? "%" : ""}">${x[0]}${x[1] ? "%" : ""}</b>${x[1] ? `<svg class="ring" viewBox="0 0 44 44" aria-hidden="true"><circle class="tr" cx="22" cy="22" r="18"/><circle class="fg" cx="22" cy="22" r="18" stroke-dasharray="${((x[0] / 100) * C).toFixed(1)} ${C.toFixed(1)}"/></svg>` : ""}<span>${x[2]}</span><small>${x[3]}</small></div>`).join("");
 }
 function countUp() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -742,7 +814,7 @@ function renderAll() {
   $("#status").innerHTML = `<span class="pill${S.demo ? " demo" : ""}">${S.demo ? "Demo data, not real survey results" : "Loaded data"}</span><span>${esc(S.source)}</span>` + (S.refused ? `<span>${S.refused} refusal${S.refused > 1 ? "s" : ""} excluded</span>` : "");
   $("#count").textContent = `${recs.length} of ${S.all.length} interviews`;
   kpis(recs);
-  $("#tabs").innerHTML = TABS.map((t) => `<button class="tab" role="tab" aria-selected="${t[0] === S.tab}" data-tab="${t[0]}">${t[1]}</button>`).join("");
+  $("#tabs").innerHTML = TABS.map((t) => `<button class="tab" role="tab" aria-selected="${t[0] === S.tab}" data-tab="${t[0]}">${icon(TABICON[t[0]])}${t[1]}</button>`).join("");
   $("#grid").innerHTML = tabCards(S.tab, recs).join("");
   $("#chips").innerHTML = chipsRow(); bindViz(); dataCheck();
 }
