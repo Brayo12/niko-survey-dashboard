@@ -275,6 +275,28 @@ dialog input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; 
 
 .row.clk { cursor: pointer; } .row.sel { background: color-mix(in srgb, var(--k) 12%, transparent); border-radius: 8px; }
 .row.sel .oi { background: var(--k); color: #fff; }
+
+/* level switch */
+.levels { display: flex; gap: 10px; margin: 4px 0 12px; flex-wrap: wrap; }
+.lvl { display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; border-radius: 16px; border: 2px solid var(--line); background: var(--surface); color: var(--ink-2); font: inherit; font-weight: 800; font-size: 15px; cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s, background .15s; }
+.lvl .ic { font-size: 22px; color: var(--c1); }
+.lvl:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--c1); }
+.lvl[aria-selected="true"] { background: linear-gradient(135deg, var(--navy), var(--navy-2)); color: #fff; border-color: var(--navy); box-shadow: var(--shadow); }
+.lvl[aria-selected="true"] .ic { color: #fff; }
+.tabs { padding-left: 4px; border-left: 4px solid var(--c1); }
+/* tables and heat map */
+.tblwrap { overflow-x: auto; margin-top: 6px; }
+.lbt, .heat { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.lbt th, .lbt td, .heat th, .heat td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.lbt thead th, .heat thead th, .heat tr:first-child th { color: var(--ink-3); font-weight: 700; font-size: 12px; position: sticky; top: 0; background: var(--surface); }
+.lbt th[scope="row"], .heat th[scope="row"] { text-align: left; font-weight: 700; color: var(--ink); }
+.lbt thead th:first-child, .heat tr:first-child th:first-child { text-align: left; }
+.lbt tr.clk { cursor: pointer; transition: background .15s; } .lbt tr.clk:hover, .lbt tr.sel { background: color-mix(in srgb, var(--c1) 12%, transparent); }
+.lbt .oi { margin-right: 8px; vertical-align: middle; }
+.heat td.hm { text-align: center; min-width: 44px; font-weight: 800; background: color-mix(in srgb, var(--c1) calc(var(--t, 0) * 85%), var(--surface)); color: var(--ink); transition: transform .15s; }
+.heat td.hm:hover { transform: scale(1.12); position: relative; z-index: 1; box-shadow: var(--shadow); }
+.heat td.tot { background: transparent; color: var(--ink-3); }
+.fl { display: inline-block; margin: 1px 3px 1px 0; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: color-mix(in srgb, var(--c2) 16%, var(--surface)); color: var(--ink); }
 </style>
 
 <div class="band"><div class="band-in">
@@ -318,6 +340,7 @@ dialog input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; 
     <div class="count" id="count" aria-live="polite"></div>
     <div class="chips" id="chips"></div>
   </div>
+  <div class="levels" role="tablist" id="levels"></div>
   <div class="kpis" id="kpis"></div>
   <div class="tabs" role="tablist" id="tabs"></div>
   <div class="grid" id="grid"></div>
@@ -394,11 +417,31 @@ function normRow(raw) {
   const first = st.find((x) => x !== null);
   if (prev !== null && first !== undefined && first > prev) rec.secs.intro = (first - prev) / 60000;
   order.forEach((k, i) => { if (st[i] === null) return; let nx = null; for (let j = i + 1; j < st.length; j++) if (st[j] !== null) { nx = st[j]; break; } if (nx === null) nx = tend; if (nx !== null && nx >= st[i]) rec.secs[k] = (nx - st[i]) / 60000; });
+  /* fieldwork and quality facts (no personal data) */
+  const wall = (v) => { const m = String(v == null ? "" : v).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):/); return m ? { d: m[1], h: +m[2] } : null; };
+  const w0 = wall(flat.start); rec.sdate = w0 ? w0.d : ""; rec.hour = w0 ? w0.h : null;
+  rec.wd = w0 ? new Date(w0.d + "T12:00:00").getDay() : null;
+  rec.id = flat._id || flat["meta/instanceID"] || "";
+  const tzm = String(flat.start || "").match(/([+-]\d{2}:\d{2})$/); rec.tz = tzm ? tzm[1] : "";
+  const eMs = ts(flat.end), subMs = ts(flat._submission_time);
+  rec.lagH = eMs !== null && subMs !== null ? Math.max(0, (subMs - eMs) / 3600000) : null;
+  const ymd = (v) => (v instanceof Date && !isNaN(v) ? dkey(v) : String(v == null ? "" : v).slice(0, 10));
+  const idt = ymd(flat.interview_date), tdy = ymd(flat.today);
+  const flags = [];
+  if (rec.mins !== null && rec.mins < 15) flags.push("short");
+  if (rec.mins !== null && rec.mins >= 180) flags.push("long");
+  if (rec.tz && rec.tz !== "+03:00") flags.push("tz");
+  if ((idt && rec.sdate && Math.abs(new Date(idt) - new Date(rec.sdate)) >= 86400000) || (idt && tdy && idt !== tdy)) flags.push("date");
+  if (rec.lagH !== null && rec.lagH > 24) flags.push("late");
+  if (!idt) flags.push("nodate");
+  if (flat.county === "042" && (!flat.sub_county || !flat.ward)) flags.push("noloc");
+  if (rec.q31_has_talent && rec.age !== null && rec.age < 6) flags.push("skip");
+  rec.flags = flags;
   return rec;
 }
 
 /* ---------- state ---------- */
-const S = { all: [], refused: 0, source: "", demo: false, tab: "overview", filt: { enum: "", sub: "", ward: "", sex: "", age: "", from: "", to: "" }, tbl: {}, full: {}, rawKeys: [] };
+const S = { all: [], refused: 0, source: "", demo: false, tab: "overview", filt: { enum: "", sub: "", ward: "", sex: "", age: "", from: "", to: "" }, tbl: {}, full: {}, rawKeys: [], refRecs: [], level: "resp" };
 const SECTIONS = [["location", "Location"], ["caregiver", "Caregiver details"], ["socio", "Socio-economic"], ["child", "Child details"], ["education", "Education"], ["talent", "Talent"], ["disability", "Disability status"], ["health", "Child health care"], ["support", "Daily activities"], ["at", "Assistive technology"], ["env", "Environment"]];
 const AGEBANDS = [["0-4", "0 to 4 years", 0, 4], ["5-10", "5 to 10 years", 5, 10], ["11-17", "11 to 17 years", 11, 17], ["18+", "18 years and over", 18, 200]];
 const bandOf = (a) => { if (a === null || a === undefined) return ""; for (const b of AGEBANDS) if (a >= b[2] && a <= b[3]) return b[0]; return ""; };
@@ -407,7 +450,7 @@ function ingest(rows, source, demo) {
   S.rawKeys = rows.length ? Object.keys(rows[0]) : [];
   const recs = rows.map(normRow);
   S.refused = recs.filter((r) => r.consent === "no").length;
-  S.all = recs.filter((r) => r.consent !== "no");
+  S.all = recs.filter((r) => r.consent !== "no"); S.refRecs = recs.filter((r) => r.consent === "no");
   S.source = source; S.demo = demo;
   S.filt = { enum: "", sub: "", ward: "", sex: "", age: "", from: "", to: "" };
   buildFilters(); renderAll();
@@ -482,6 +525,7 @@ const IC = {
   check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>',
+  clipboard: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>'
 };
 const icon = (n, cls) => `<svg class="ic${cls ? " " + cls : ""}" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || IC.info}</svg>`;
@@ -490,7 +534,7 @@ const optIc = (label, id) => { const l = String(label || ""); for (const [re, n]
 const badge = (n) => `<span class="hi">${icon(n)}</span>`;
 const ID_ICON = { q23_child_sex: "person", ageband: "clock", cgage: "clock", q39_cert_category: "certificate", q41_cert_disability: "grid", ward: "pin", q25_identified_by: "health", q26_age_identified: "clock", q38_registered_ncpwd: "idcard", q37_has_certificate: "certificate", q43_cert_uses: "certificate", q44a_not_registered_why: "alert", q45_assessment_support: "health", q46_comm_improve: "chat", q27_attending_school: "school", q27_no_school_why: "alert", q28_earc_assessed: "school", q29_school_level: "school", q30_school_type: "school", q31_has_talent: "star", q32_talents: "star", q34_in_sports_group: "star", q47_welfare_clinic: "health", q47_no_clinic_why: "alert", q48_milestones_discussed: "chat", q69_has_at: "wheelchair", q70_1_needs_at: "wheelchair", q70_at_state: "wheelchair", q70_at_have: "wheelchair", q70_2_at_needed: "wheelchair", q71_at_challenges: "alert", q72_at_payer: "wallet", q73_at_cost: "wallet", q74_extra_help: "heart", fn_reg: "funnel", fn_at: "wheelchair", adl_radar: "radar", adl: "walk", env_radar: "radar", env: "mountain", env_imp: "alert", map: "pin", q11_caregiver_sex: "person", q14_relationship: "users", q13_head_of_household: "home", q16_caregiver_attended_school: "book", q17_caregiver_highest_grade: "book", q18_has_phone: "phone", q20_smartphone: "phone", q19_no_phone_why: "phone", main_activity_7d: "briefcase", econ_engaged: "briefcase", econ_activity: "briefcase", gov_programme: "shield", nongov_programme: "shield", reduced_income: "wallet", care_support_needed: "heart", support_group: "users", support_group_type: "users" };
 const ADLIC = { q52_eating: "utensils", q54_washing: "droplet", q55_dressing: "shirt", q56_toilet: "toilet", q57_moving_house: "walk", q58_outside_house: "door", q59_transport: "bus", q60_shopping: "bag", q61_water: "droplet", q63_education_access: "school", q65_communicating: "chat", q66_caring_family: "heart", q68_community: "users", env_transport: "bus", env_natural: "mountain", env_info: "info", env_att_home: "home", env_att_school: "school", env_att_community: "users" };
-const TABICON = { overview: "dash", disability: "idcard", edu: "school", at: "wheelchair", adl: "walk", env: "mountain", care: "users", time: "clock" };
+const TABICON = { overview: "dash", disability: "idcard", edu: "school", at: "wheelchair", adl: "walk", env: "mountain", care: "users", time: "clock", fo_over: "activity", fo_int: "users", fo_dq: "shield" };
 
 /* ---------- visual helpers ---------- */
 const CI = (i) => (typeof i === "string" ? i : i < 0 ? "var(--other)" : `var(--c${(i % 6) + 1})`);
@@ -686,7 +730,9 @@ function bindTimeline() {
 
 
 /* ---------- tabs ---------- */
-const TABS = [["overview", "Overview"], ["disability", "Disability and registration"], ["edu", "Education, talent and health"], ["at", "Assistive technology"], ["adl", "Daily activities"], ["env", "Environment"], ["care", "Caregivers"], ["time", "Interview time"]];
+const TABS_R = [["overview", "Overview"], ["disability", "Disability and registration"], ["edu", "Education, talent and health"], ["at", "Assistive technology"], ["adl", "Daily activities"], ["env", "Environment"], ["care", "Caregivers"]];
+const TABS_F = [["fo_over", "Fieldwork overview"], ["fo_int", "Interviewers"], ["time", "Interview time"], ["fo_dq", "Data quality"]];
+const tabsFor = () => (S.level === "field" ? TABS_F : TABS_R);
 function binaryFunnel(recs) {
   const n = recs.length; const reg = recs.filter((r) => r.q38_registered_ncpwd === "yes"); const cert = reg.filter((r) => r.q37_has_certificate === "yes");
   return [{ label: "Children profiled", n }, { label: "Registered with NCPWD", n: reg.length }, { label: "Hold a disability certificate", n: cert.length }];
@@ -731,7 +777,7 @@ function tabCards(tab, recs) {
   switch (tab) {
     case "overview": {
       const bands = AGEBANDS.map((b) => ({ k: b[0], label: b[1], n: recs.filter((r) => bandOf(r.age) === b[0]).length })); const bn = bands.reduce((s, b) => s + b.n, 0);
-      return [timelineCard(recs), mapCard(recs), fc("q23_child_sex", "Sex of child", { viz: "donut", centerLabel: "children", filter: (k) => "sex:" + k, k: "var(--c3)" }), columnCard("ageband", "Age of child", bands, bn, { k: "var(--c4)" }), fc("q39_cert_category", "Disability category on certificate", { viz: "donut", centerLabel: "certificates", k: "var(--c5)" }), fc("ward", "Interviews by ward", { max: 8, k: "var(--c1)" }), fc("q25_identified_by", "How the disability was first identified", { viz: "donut", k: "var(--c2)" })];
+      return [mapCard(recs), fc("q23_child_sex", "Sex of child", { viz: "donut", centerLabel: "children", filter: (k) => "sex:" + k, k: "var(--c3)" }), columnCard("ageband", "Age of child", bands, bn, { k: "var(--c4)" }), fc("q39_cert_category", "Disability category on certificate", { viz: "donut", centerLabel: "certificates", k: "var(--c5)" }), fc("ward", "Interviews by ward", { max: 8, k: "var(--c1)" }), fc("q25_identified_by", "How the disability was first identified", { viz: "donut", k: "var(--c2)" })];
     }
     case "disability":
       return [funnelCard("fn_reg", "From profile to certificate", "Children profiled, registered with NCPWD, and holding a certificate", binaryFunnel(recs), { k: "var(--c3)" }), fc("q38_registered_ncpwd", "Registered with NCPWD on e-Citizen", { viz: "donut", centerLabel: "asked", k: "var(--c1)" }), fc("q37_has_certificate", "Has a disability certificate", { viz: "donut", centerLabel: "registered", k: "var(--c2)" }), fc("q39_cert_category", "Disability category on certificate", { viz: "donut", centerLabel: "certificates", k: "var(--c5)" }), fc("q41_cert_disability", "Disability on certificate", { viz: "treemap", top: 18, span2: true, k: "var(--c1)" }), fc("q26_age_identified", "Age when disability was first identified", { viz: "column", order: "list", k: "var(--c4)" }), fc("q43_cert_uses", "Main uses of the certificate", { k: "var(--c3)" }), fc("q44a_not_registered_why", "Why the child is not registered", { k: "var(--c2)" }), fc("q45_assessment_support", "What would improve access to assessment", { k: "var(--c5)" }), fc("q46_comm_improve", "How communication with providers could improve", { k: "var(--c6)" })];
@@ -753,7 +799,10 @@ function tabCards(tab, recs) {
       const imp = stackedCard("env_imp", "How the barriers affect daily activity", "Among children for whom the barrier occurs at least monthly", impRows, [["mild", "Mildly", "color-mix(in srgb, var(--c2) 40%, #fff)", 1], ["mod", "Moderately", "color-mix(in srgb, var(--c2) 68%, #fff)", 1], ["sev", "Severely", "var(--c2)"]], { k: "var(--c3)" });
       return [rad, freq, imp];
     }
-    case "time": return timeCards(recs);
+    case "time": return timeCards(recs).concat(timeExtras(recs));
+    case "fo_over": return fwOverview(recs);
+    case "fo_int": return fwInterviewers(recs);
+    case "fo_dq": return fwQuality(recs);
     case "care": {
       const bands = [["<25", 0, 24], ["25-34", 25, 34], ["35-44", 35, 44], ["45-54", 45, 54], ["55-64", 55, 64], ["65+", 65, 200]].map((b) => ({ k: b[0], label: b[0] + " years", n: recs.filter((r) => r.cgAge !== null && r.cgAge >= b[1] && r.cgAge <= b[2]).length })); const bn = bands.reduce((s, b) => s + b.n, 0);
       return [fc("q11_caregiver_sex", "Sex of caregiver", { viz: "donut", centerLabel: "caregivers", k: "var(--c3)" }), columnCard("cgage", "Age of caregiver", bands, bn, { k: "var(--c4)" }), fc("q14_relationship", "Relationship to the child", { viz: "donut", k: "var(--c2)" }), fc("q13_head_of_household", "Caregiver is head of household", { viz: "donut", k: "var(--c1)" }), fc("q16_caregiver_attended_school", "Caregiver has attended school", { viz: "donut", k: "var(--c5)" }), fc("q17_caregiver_highest_grade", "Highest grade attained", { max: 8, k: "var(--c3)" }), fc("q18_has_phone", "Caregiver has a phone", { viz: "donut", k: "var(--c1)" }), fc("q20_smartphone", "Phone is a smartphone", { viz: "donut", k: "var(--c2)" }), fc("q19_no_phone_why", "Why no phone", { k: "var(--c6)" }), fc("main_activity_7d", "Main activity in the last 7 days", { max: 8, k: "var(--c4)" }), fc("econ_engaged", "Engaged in an economic activity", { viz: "donut", k: "var(--c5)" }), fc("econ_activity", "Economic activity", { k: "var(--c3)" }), fc("gov_programme", "Government social protection received", { k: "var(--c1)" }), fc("nongov_programme", "Non-government support received", { viz: "donut", k: "var(--c2)" }), fc("reduced_income", "Reduced income because of caring", { viz: "donut", k: "var(--c6)" }), fc("care_support_needed", "Support needed to care", { k: "var(--c4)" }), fc("support_group", "Belongs to a support group", { viz: "donut", k: "var(--c5)" }), fc("support_group_type", "Type of support group", { k: "var(--c3)" })];
@@ -764,6 +813,7 @@ function tabCards(tab, recs) {
 
 /* KPI tiles: ring gauge for percentages, count-up numbers */
 function kpis(recs) {
+  if (S.level === "field") return kpisField(recs);
   const n = recs.length;
   const reg = share(recs, "q38_registered_ncpwd", "yes"), cert = share(recs, "q37_has_certificate", "yes"), sch = share(recs, "q27_attending_school", "yes"), at = share(recs, "q69_has_at", "yes"), need = share(recs, "q70_1_needs_at", "yes");
   const med = median(recs.map((r) => r.age)); const tmed = mean(recs.map((r) => r.mins).filter((x) => x !== null));
@@ -807,13 +857,102 @@ function chipsRow() {
 }
 document.addEventListener("click", (e) => { const c = e.target.closest("[data-clear]"); if (!c) return; const k = c.dataset.clear; S.filt[k] = ""; if (k === "sub") { S.filt.ward = ""; fillWards(); } $("#f-" + k).value = ""; renderAll(); });
 
+/* =================== level 2: fieldwork and interviewers =================== */
+const FLAGS = { short: ["Under 15 minutes", "alert"], long: ["Over 3 hours", "clock"], tz: ["Device clock on another time zone", "info"], date: ["Interview date differs from device date", "info"], late: ["Submitted over 24 h after finishing", "plug"], nodate: ["No interview date", "file"], noloc: ["No sub-county or ward", "pin"], skip: ["Talent asked for a child under 6", "star"] };
+const WDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const refFiltered = () => { const f = S.filt; return S.refRecs.filter((r) => (!f.enum || r.enumerator_name === f.enum) && (!f.from || (r.date && dkey(r.date) >= f.from)) && (!f.to || (r.date && dkey(r.date) <= f.to))); };
+const enumRows = (recs, refs) => {
+  const by = {};
+  const g = (e) => (by[e] = by[e] || { e, n: 0, mins: [], days: new Set(), subs: {}, short: 0, flagged: 0, ref: 0, first: null, last: null });
+  recs.forEach((r) => { const e = r.enumerator_name; if (!e) return; const o = g(e); o.n++; if (r.mins !== null) { o.mins.push(r.mins); if (r.mins < 15) o.short++; } if (r.date) { const k = dkey(r.date); o.days.add(k); if (!o.first || k < o.first) o.first = k; if (!o.last || k > o.last) o.last = k; } if (r.sub) o.subs[r.sub] = (o.subs[r.sub] || 0) + 1; if (r.flags.length) o.flagged++; });
+  refs.forEach((r) => { if (r.enumerator_name) g(r.enumerator_name).ref++; });
+  return Object.values(by).map((o) => ({ ...o, avg: mean(o.mins), med: median(o.mins), perDay: o.days.size ? o.n / o.days.size : 0, consent: pct(o.n, o.n + o.ref) })).sort((a, b) => b.n - a.n);
+};
+function kpisField(recs) {
+  const refs = refFiltered(); const rows = enumRows(recs, refs);
+  const v = recs.map((r) => r.mins).filter((x) => x !== null);
+  const days = new Set(recs.map((r) => (r.date ? dkey(r.date) : "")).filter(Boolean)).size;
+  const enrolled = Object.keys(CH.enumerator || {}).length;
+  const flagged = recs.filter((r) => r.flags.length).length;
+  const k = [[recs.length, null, "Interviews completed", "with consent", "var(--c1)", "clipboard"], [mean(v) === null ? "n/a" : Math.round(mean(v)), null, "Average interview time", "minutes", "var(--c3)", "clock"], [median(v) === null ? "n/a" : Math.round(median(v)), null, "Median interview time", "minutes", "var(--c4)", "clock"], [rows.length, null, "Interviewers active", enrolled ? `of ${enrolled} on the list` : "in this data", "var(--c5)", "users"], [days ? Math.round((recs.length / days) * 10) / 10 : "n/a", null, "Interviews per day", `over ${days} field day${days === 1 ? "" : "s"}`, "var(--c2)", "activity"], [pct(recs.length, recs.length + refs.length), 1, "Consent rate", `${refs.length} declined`, "var(--c1)", "check"], [flagged, null, "Interviews to check", "see Data quality", "var(--c6)", "alert"]];
+  const C = 0;
+  $("#kpis").innerHTML = k.map((x, i) => `<div class="kpi" style="--i:${i};--k:${x[4]}"${tipAttr(`<b>${esc(x[2])}</b><span>${esc(String(x[0]))}${x[1] ? "%" : ""} ${esc(x[3])}</span>`)}><i class="kic">${icon(x[5])}</i><b class="cu" data-v="${typeof x[0] === "number" ? x[0] : ""}" data-p="${x[1] ? "%" : ""}">${x[0]}${x[1] ? "%" : ""}</b>${x[1] ? `<span class="pict" aria-hidden="true">${Array.from({ length: 10 }, (_, j) => `<i class="${j < Math.round(x[0] / 10) ? "on" : ""}">${icon("person")}</i>`).join("")}</span>` : ""}<span>${x[2]}</span><small>${x[3]}</small></div>`).join("");
+}
+/* custom value columns (any unit) */
+function valueCols(ents, unit, o) {
+  o = o || {}; if (!ents.length) return EMPTY;
+  const W = 780, H = 220, L = 10, R = 10, T = 24, B = 34, n = ents.length, hi = Math.max(...ents.map((e) => e.v), 1), bw = (W - L - R) / n, w = Math.min(46, bw * 0.7);
+  const bars = ents.map((e, i) => { const h = ((H - T - B) * e.v) / hi, x = L + i * bw + (bw - w) / 2, y = H - B - h; return `<g><rect class="col mark" style="--s:${i}" tabindex="0" data-hk="${i}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(h, e.v ? 2 : 0).toFixed(1)}" rx="5" fill="${o.fill || "var(--c1)"}"${tipAttr(`<b>${esc(e.label)}</b><span>${esc(e.tip || e.v + " " + unit)}</span>`)}/>${n <= 14 || e.v === hi ? `<text class="val-text" x="${(x + w / 2).toFixed(1)}" y="${(y - 5).toFixed(1)}">${e.vt || Math.round(e.v)}</text>` : ""}${n <= 18 || i % Math.ceil(n / 14) === 0 ? `<text class="axis-text" x="${(x + w / 2).toFixed(1)}" y="${H - B + 15}" text-anchor="middle">${esc(e.label)}</text>` : ""}</g>`; }).join("");
+  return `<div class="svgwrap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(ents.map((e) => e.label + " " + (e.vt || Math.round(e.v))).join(", "))}"><line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--line)"/>${bars}</svg></div>`;
+}
+const vcCard = (id, title, meta, ents, unit, o) => { o = o || {}; return card(id, title, meta, S.tbl[id] ? tableBody(ents.map((e) => ({ k: e.label, label: e.label, n: e.v })), 0) : valueCols(ents, unit, o), { wide: o.wide !== false, k: o.k, ic: o.ic, defIcon: "bar" }); };
+function heatCard(id, title, meta, rowsL, cols, cells, o) {
+  o = o || {}; const hi = Math.max(1, ...Object.values(cells));
+  const head = `<tr><th></th>${cols.map((c) => `<th>${esc(c[1])}</th>`).join("")}<th>All</th></tr>`;
+  const trs = rowsL.map((r) => { let tot = 0; const tds = cols.map((c) => { const n = cells[r[0] + "|" + c[0]] || 0; tot += n; return `<td class="hm mark" style="--t:${(n / hi).toFixed(2)}"${tipAttr(`<b>${esc(r[1])}</b><span>${esc(c[1])}: ${n} interview${n === 1 ? "" : "s"}</span>`)} tabindex="0">${n || ""}</td>`; }).join(""); return `<tr><th scope="row">${esc(r[1])}</th>${tds}<td class="hm tot">${tot}</td></tr>`; }).join("");
+  return card(id, title, meta, rowsL.length ? `<div class="tblwrap"><table class="heat">${head}${trs}</table></div>` : EMPTY, { wide: true, k: o.k, ic: o.ic, defIcon: "grid" });
+}
+function leaderCard(recs) {
+  const refs = refFiltered(); const rows = enumRows(recs, refs);
+  const body = rows.length ? `<div class="tblwrap"><table class="lbt"><thead><tr><th>Interviewer</th><th>Interviews</th><th>Field days</th><th>Per day</th><th>Average time</th><th>Median time</th><th>Under 15 min</th><th>To check</th><th>Declined</th><th>First</th><th>Last</th></tr></thead><tbody>${rows.map((o) => `<tr class="clk${S.filt.enum === o.e ? " sel" : ""}" data-filter="enum:${esc(o.e)}" tabindex="0"><th scope="row"><i class="oi">${icon("person")}</i>${esc(lab("enumerator", o.e))}</th><td><b>${o.n}</b></td><td>${o.days.size}</td><td>${o.perDay.toFixed(1)}</td><td>${fmtMin(o.avg)}</td><td>${fmtMin(o.med)}</td><td>${o.short || "·"}</td><td>${o.flagged || "·"}</td><td>${o.ref || "·"}</td><td>${o.first ? o.first.slice(5) : "·"}</td><td>${o.last ? o.last.slice(5) : "·"}</td></tr>`).join("")}</tbody></table></div>` : EMPTY;
+  return card("lead", "Interviewer scorecard", `<span>${rows.length} interviewer${rows.length === 1 ? "" : "s"}. Click a row to filter.</span>`, body, { wide: true, k: "var(--c1)", ic: "users" });
+}
+function metricBars(id, title, meta, rows, o) { return timeBars(id, title, meta, rows, o); }
+function fwOverview(recs) {
+  const refs = refFiltered(), all = recs.length + refs.length;
+  const cmp = filtered("enum"); const by = {}; cmp.forEach((r) => { if (r.enumerator_name) by[r.enumerator_name] = (by[r.enumerator_name] || 0) + 1; });
+  const perI = Object.keys(by).map((e) => ({ label: lab("enumerator", e), v: by[e], vt: by[e] + " interview" + (by[e] === 1 ? "" : "s"), f: "enum:" + e, sel: S.filt.enum === e, tip: by[e] + " interviews (" + pct(by[e], cmp.length) + "% of all). Click to filter.", ic: "person" })).sort((a, b) => b.v - a.v);
+  const bars = metricBars("fo_perI", "Interviews by interviewer", `<span>${perI.length} interviewer${perI.length === 1 ? "" : "s"}. Click one to filter.</span>`, perI.map((r) => ({ ...r, vt: r.vt })), { k: "var(--c5)", ic: "users", empty: "No interviewer names in this data." });
+  const wd = WDAYS.map((d, i) => ({ k: d, label: d, n: recs.filter((r) => r.wd === i).length }));
+  const hrs = []; for (let h = 6; h <= 20; h++) hrs.push({ k: h, label: h + "h", n: recs.filter((r) => r.hour === h).length });
+  const cons = [{ k: "yes", label: "Consented", n: recs.length }, { k: "no", label: "Declined", n: refs.length }].filter((e) => e.n);
+  return [timelineCard(recs), mapCard(recs), donutCard("fo_consent", "Consent", cons, all, { centerLabel: "approached", k: "var(--c1)", ic: "check" }), bars, columnCard("fo_wd", "Interviews by day of the week", wd, wd.reduce((s, x) => s + x.n, 0), { k: "var(--c4)", ic: "clock" }), columnCard("fo_hr", "Interviews by start hour", hrs, hrs.reduce((s, x) => s + x.n, 0), { k: "var(--c3)", ic: "clock", wide: true })];
+}
+function fwInterviewers(recs) {
+  const cmp = filtered("enum"), rows = enumRows(cmp, refFiltered());
+  const ids = rows.map((o) => [o.e, lab("enumerator", o.e)]);
+  const subs = Object.keys(TILEPOS).map((k) => [k, lab("sub_county", k)]); const cells = {};
+  cmp.forEach((r) => { if (r.enumerator_name && r.sub) { const k = r.enumerator_name + "|" + r.sub; cells[k] = (cells[k] || 0) + 1; } });
+  const avg = rows.filter((o) => o.avg !== null).map((o) => ({ label: lab("enumerator", o.e), v: o.avg, vt: "avg " + fmtMin(o.avg) + " · " + o.mins.length, f: "enum:" + o.e, sel: S.filt.enum === o.e, tip: "Average " + fmtMin(o.avg) + ", median " + fmtMin(o.med) + " over " + o.mins.length + " interviews. Click to filter.", ic: "clock" })).sort((a, b) => b.v - a.v);
+  const per = rows.map((o) => ({ label: lab("enumerator", o.e), v: o.perDay, vt: o.perDay.toFixed(1) + " a day · " + o.days.size + " d", f: "enum:" + o.e, sel: S.filt.enum === o.e, tip: o.n + " interviews over " + o.days.size + " field day" + (o.days.size === 1 ? "" : "s"), ic: "activity" })).sort((a, b) => b.v - a.v);
+  return [leaderCard(cmp), timeBars("lead_avg", "Average time by interviewer", `<span>Longest first</span>`, avg, { k: "var(--c4)", ic: "clock" }), timeBars("lead_day", "Interviews per field day", `<span>Productivity by interviewer</span>`, per, { k: "var(--c2)", ic: "activity" }), heatCard("lead_heat", "Who interviewed where", `<span>Interviews by interviewer and sub-county</span>`, ids, subs, cells, { k: "var(--c3)", ic: "pin" })];
+}
+function fwQuality(recs) {
+  const n = recs.length, clean = recs.filter((r) => !r.flags.length).length;
+  const cnt = {}; recs.forEach((r) => r.flags.forEach((f) => (cnt[f] = (cnt[f] || 0) + 1)));
+  const stat = (ic, val, lab2, k, tip) => `<div class="st mark"${tipAttr(tip)} style="--k:${k}" tabindex="0"><i class="kic">${icon(ic)}</i><b>${val}</b><span>${lab2}</span></div>`;
+  const stats = card("dq_stats", "Checks on each interview", `<span>${clean} of ${n} pass every check</span>`, n ? `<div class="stats">${stat("check", pct(clean, n) + "%", "Pass every check", "var(--c5)", "<b>Clean</b><span>No flag raised</span>")}${Object.keys(FLAGS).map((f) => stat(FLAGS[f][1], cnt[f] || 0, FLAGS[f][0], cnt[f] ? "var(--c2)" : "var(--other)", `<b>${esc(FLAGS[f][0])}</b><span>${cnt[f] || 0} interview${cnt[f] === 1 ? "" : "s"}</span>`)).join("")}</div>` : EMPTY, { wide: true, k: "var(--c5)", ic: "shield" });
+  const by = {}; recs.forEach((r) => { if (r.flags.length && r.enumerator_name) by[r.enumerator_name] = (by[r.enumerator_name] || 0) + 1; });
+  const byI = Object.keys(by).map((e) => ({ label: lab("enumerator", e), v: by[e], vt: by[e] + " to check", f: "enum:" + e, sel: S.filt.enum === e, tip: by[e] + " interview" + (by[e] === 1 ? "" : "s") + " with at least one flag", ic: "alert" })).sort((a, b) => b.v - a.v);
+  const flagBars = timeBars("dq_by", "Interviews to check, by interviewer", `<span>${byI.length ? "At least one flag" : "Nothing flagged"}</span>`, byI, { k: "var(--c2)", ic: "alert", empty: "No interview has a flag for the current filters." });
+  const lag = recs.filter((r) => r.lagH !== null); const LB = [["<1h", "Under 1 h", 0, 1], ["1-6", "1 to 6 h", 1, 6], ["6-24", "6 to 24 h", 6, 24], ["1-3d", "1 to 3 days", 24, 72], ["3d+", "Over 3 days", 72, 1e9]];
+  const lagCard = columnCard("dq_lag", "Time from finishing to submission", LB.map((b) => ({ k: b[0], label: b[1], n: lag.filter((r) => r.lagH >= b[2] && r.lagH < b[3]).length })), lag.length, { k: "var(--c6)", ic: "plug" });
+  const flagged = recs.filter((r) => r.flags.length).sort((a, b) => (b.flags.length - a.flags.length)).slice(0, 60);
+  const tbl = flagged.length ? `<div class="tblwrap"><table class="lbt"><thead><tr><th>Submission</th><th>Date</th><th>Interviewer</th><th>Sub-county</th><th>Minutes</th><th>Flags</th></tr></thead><tbody>${flagged.map((r) => `<tr><th scope="row">${esc(r.id)}</th><td>${r.date ? dkey(r.date) : "·"}</td><td>${esc(lab("enumerator", r.enumerator_name) || "·")}</td><td>${esc(lab("sub_county", r.sub) || "·")}</td><td>${r.mins === null ? "·" : Math.round(r.mins)}</td><td>${r.flags.map((f) => `<span class="fl">${esc(FLAGS[f][0])}</span>`).join("")}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Nothing to check for the current filters.</div>`;
+  const list = card("dq_list", "Interviews to check", `<span>${flagged.length}${recs.filter((r) => r.flags.length).length > 60 ? " of " + recs.filter((r) => r.flags.length).length : ""} shown. No names or ID numbers.</span>`, tbl, { wide: true, k: "var(--c2)", ic: "list" });
+  return [stats, flagBars, lagCard, list];
+}
+/* extra time charts */
+function timeExtras(recs) {
+  const T = recs.filter((r) => r.mins !== null && r.date);
+  const d = {}; T.forEach((r) => { const k = dkey(r.date); (d[k] = d[k] || []).push(r.mins); });
+  const days = Object.keys(d).sort().map((k) => ({ label: k.slice(5), v: mean(d[k]), vt: Math.round(mean(d[k])) + "", tip: d[k].length + " interview" + (d[k].length > 1 ? "s" : "") + ", average " + fmtMin(mean(d[k])) }));
+  const H = {}; recs.filter((r) => r.mins !== null && r.hour !== null).forEach((r) => (H[r.hour] = H[r.hour] || []).push(r.mins));
+  const hrs = Object.keys(H).map(Number).sort((a, b) => a - b).map((h) => ({ label: h + "h", v: mean(H[h]), vt: Math.round(mean(H[h])) + "", tip: H[h].length + " interview" + (H[h].length > 1 ? "s" : "") + " started at " + h + "h, average " + fmtMin(mean(H[h])) }));
+  return [vcCard("t_trend", "Average minutes per field day", "<span>Is the team getting faster?</span>", days, "min", { k: "var(--c3)", ic: "activity" }), vcCard("t_hour", "Average minutes by start hour", "<span>Late-day interviews can run longer or shorter</span>", hrs, "min", { k: "var(--c4)", ic: "clock" })];
+}
+/* level switch */
+const LEVELS = [["resp", "Respondent data", "users"], ["field", "Fieldwork and interviewers", "clipboard"]];
+const levelsHtml = () => LEVELS.map((l) => `<button type="button" class="lvl" role="tab" aria-selected="${S.level === l[0]}" data-level="${l[0]}">${icon(l[2])}<span>${l[1]}</span></button>`).join("");
+document.addEventListener("click", (e) => { const b = e.target.closest("[data-level]"); if (!b || b.dataset.level === S.level) return; S.level = b.dataset.level; S.tab = tabsFor()[0][0]; renderAll(); });
+
 /* ---------- rendering ---------- */
 function renderAll() {
   const recs = filtered();
   $("#status").innerHTML = `<span class="pill${S.demo ? " demo" : ""}">${S.demo ? "No data yet" : "Loaded data"}</span><span>${esc(S.source)}</span>` + (S.refused ? `<span>${S.refused} refusal${S.refused > 1 ? "s" : ""} excluded</span>` : "");
   $("#count").textContent = `${recs.length} of ${S.all.length} interviews`;
   kpis(recs);
-  $("#tabs").innerHTML = TABS.map((t) => `<button class="tab" role="tab" aria-selected="${t[0] === S.tab}" data-tab="${t[0]}">${icon(TABICON[t[0]])}${t[1]}</button>`).join("");
+  $("#levels").innerHTML = levelsHtml(); $("#tabs").innerHTML = tabsFor().map((t) => `<button class="tab" role="tab" aria-selected="${t[0] === S.tab}" data-tab="${t[0]}">${icon(TABICON[t[0]])}${t[1]}</button>`).join("");
   $("#grid").innerHTML = tabCards(S.tab, recs).join("");
   $("#chips").innerHTML = chipsRow(); bindViz(); dataCheck();
 }
