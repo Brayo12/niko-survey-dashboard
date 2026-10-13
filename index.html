@@ -272,6 +272,9 @@ dialog input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; 
 .st .kic { width: 30px; height: 30px; font-size: 17px; margin-bottom: 4px; }
 .kpis { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
 .pict i { flex: 1; } .pict .ic { width: 100%; height: auto; max-height: 15px; }
+
+.row.clk { cursor: pointer; } .row.sel { background: color-mix(in srgb, var(--k) 12%, transparent); border-radius: 8px; }
+.row.sel .oi { background: var(--k); color: #fff; }
 </style>
 
 <div class="band"><div class="band-in">
@@ -304,6 +307,7 @@ dialog input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; 
   <div class="drop" id="drop">Drop an Inform export (.csv or .xlsx) here. The file is read in your browser and is not uploaded anywhere.</div>
   <div style="height:12px"></div>
   <div class="filters" id="filters">
+    <label>Interviewer<select id="f-enum"></select></label>
     <label>Sub-county<select id="f-sub"></select></label>
     <label>Ward<select id="f-ward"></select></label>
     <label>Child sex<select id="f-sex"></select></label>
@@ -394,7 +398,7 @@ function normRow(raw) {
 }
 
 /* ---------- state ---------- */
-const S = { all: [], refused: 0, source: "", demo: false, tab: "overview", filt: { sub: "", ward: "", sex: "", age: "", from: "", to: "" }, tbl: {}, full: {}, rawKeys: [] };
+const S = { all: [], refused: 0, source: "", demo: false, tab: "overview", filt: { enum: "", sub: "", ward: "", sex: "", age: "", from: "", to: "" }, tbl: {}, full: {}, rawKeys: [] };
 const SECTIONS = [["location", "Location"], ["caregiver", "Caregiver details"], ["socio", "Socio-economic"], ["child", "Child details"], ["education", "Education"], ["talent", "Talent"], ["disability", "Disability status"], ["health", "Child health care"], ["support", "Daily activities"], ["at", "Assistive technology"], ["env", "Environment"]];
 const AGEBANDS = [["0-4", "0 to 4 years", 0, 4], ["5-10", "5 to 10 years", 5, 10], ["11-17", "11 to 17 years", 11, 17], ["18+", "18 years and over", 18, 200]];
 const bandOf = (a) => { if (a === null || a === undefined) return ""; for (const b of AGEBANDS) if (a >= b[2] && a <= b[3]) return b[0]; return ""; };
@@ -405,12 +409,12 @@ function ingest(rows, source, demo) {
   S.refused = recs.filter((r) => r.consent === "no").length;
   S.all = recs.filter((r) => r.consent !== "no");
   S.source = source; S.demo = demo;
-  S.filt = { sub: "", ward: "", sex: "", age: "", from: "", to: "" };
+  S.filt = { enum: "", sub: "", ward: "", sex: "", age: "", from: "", to: "" };
   buildFilters(); renderAll();
 }
-const filtered = () => {
-  const f = S.filt;
-  return S.all.filter((r) => (!f.sub || r.sub === f.sub) && (!f.ward || r.ward === f.ward) && (!f.sex || r.q23_child_sex === f.sex) && (!f.age || bandOf(r.age) === f.age) &&
+const filtered = (skip) => {
+  const f = skip ? { ...S.filt, [skip]: "" } : S.filt;
+  return S.all.filter((r) => (!f.enum || r.enumerator_name === f.enum) && (!f.sub || r.sub === f.sub) && (!f.ward || r.ward === f.ward) && (!f.sex || r.q23_child_sex === f.sex) && (!f.age || bandOf(r.age) === f.age) &&
     (!f.from || (r.date && dkey(r.date) >= f.from)) && (!f.to || (r.date && dkey(r.date) <= f.to)));
 };
 
@@ -699,22 +703,24 @@ const mean = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null);
 function timeBars(id, title, meta, rows, o) {
   o = o || {};
   const hi = Math.max(...rows.map((r) => r.v), 1);
-  const body = rows.length ? `<div class="rows">${rows.map((r, i) => `<div class="row mark" data-hk="${i}"${tipAttr(`<b>${esc(r.label)}</b><span>${esc(r.tip)}</span>`)} tabindex="0"><span class="l"><i class="oi">${icon(r.ic || o.ic || "clock")}</i><span>${esc(r.label)}</span></span><span class="v">${esc(fmtMin(r.v))}</span><span class="t"><i style="width:${Math.max((r.v / hi) * 100, 1.5)}%;animation-delay:${i * 40}ms"></i></span></div>`).join("")}</div>` : `<div class="empty">${o.empty || EMPTY}</div>`;
+  const body = rows.length ? `<div class="rows">${rows.map((r, i) => `<div class="row mark${r.f ? " clk" : ""}${r.sel ? " sel" : ""}" data-hk="${i}"${r.f ? ` data-filter="${esc(r.f)}"` : ""}${tipAttr(`<b>${esc(r.label)}</b><span>${esc(r.tip)}</span>`)} tabindex="0"><span class="l"><i class="oi">${icon(r.ic || o.ic || "clock")}</i><span>${esc(r.label)}</span></span><span class="v">${esc(r.vt || fmtMin(r.v))}</span><span class="t"><i style="width:${Math.max((r.v / hi) * 100, 1.5)}%;animation-delay:${i * 40}ms"></i></span></div>`).join("")}</div>` : `<div class="empty">${o.empty || EMPTY}</div>`;
   return card(id, title, meta, body, { k: o.k, defIcon: "clock", wide: o.wide, ic: o.ic });
 }
 function timeCards(recs) {
+  const cmp = filtered("enum");
+  const selE = S.filt.enum;
   const T = recs.filter((r) => r.mins !== null);
   const v = T.map((r) => r.mins).sort((a, b) => a - b);
   const med = median(v), avg = mean(v);
   const q = (p) => (v.length ? v[Math.min(v.length - 1, Math.floor(p * v.length))] : null);
   const short = T.filter((r) => r.mins < 15).length, long = T.filter((r) => r.mins >= 180).length;
   const stat = (ic, val, lab, k, tip) => `<div class="st mark"${tipAttr(tip)} style="--k:${k}" tabindex="0"><i class="kic">${icon(ic)}</i><b>${val}</b><span>${lab}</span></div>`;
-  const stats = card("t_stats", "How long an interview takes", `<span>${T.length} of ${recs.length} interviews with a recorded time</span>`, T.length ? `<div class="stats">${stat("clock", fmtMin(med), "Median", "var(--c1)", "<b>Median</b><span>Half of interviews were faster than this</span>")}${stat("activity", fmtMin(avg), "Average", "var(--c4)", "<b>Average</b><span>Pulled up by interviews left open for a long time</span>")}${stat("check", fmtMin(v[0] ?? null), "Fastest", "var(--c5)", "<b>Fastest</b><span>Shortest recorded interview</span>")}${stat("alert", fmtMin(v[v.length - 1] ?? null), "Slowest", "var(--c2)", "<b>Slowest</b><span>Longest recorded interview</span>")}${stat("users", fmtMin(q(0.9)), "9 in 10 finish within", "var(--c3)", "<b>90th percentile</b><span>Plan fieldwork around this time</span>")}${stat("info", short + " / " + long, "Under 15 min / over 3 h", "var(--other)", "<b>Check these</b><span>Very short interviews may be incomplete. Over 3 hours usually means the form was left open.</span>")}</div>` : `<div class="empty">No timing data yet. Times come from the start and end of each submission.</div>`, { wide: true, k: "var(--c1)", ic: "clock" });
+  const stats = card("t_stats", "How long an interview takes", `<span>${selE ? esc(lab("enumerator", selE)) + ": " : ""}${T.length} of ${recs.length} interviews with a recorded time</span>`, T.length ? `<div class="stats">${stat("clock", fmtMin(avg), "Average", "var(--c1)", "<b>Average</b><span>Total time divided by interviews. Pulled up by forms left open for a long time</span>")}${stat("activity", fmtMin(med), "Median", "var(--c4)", "<b>Median</b><span>Half of interviews were faster than this</span>")}${stat("check", fmtMin(v[0] ?? null), "Fastest", "var(--c5)", "<b>Fastest</b><span>Shortest recorded interview</span>")}${stat("alert", fmtMin(v[v.length - 1] ?? null), "Slowest", "var(--c2)", "<b>Slowest</b><span>Longest recorded interview</span>")}${stat("users", fmtMin(q(0.9)), "9 in 10 finish within", "var(--c3)", "<b>90th percentile</b><span>Plan fieldwork around this time</span>")}${stat("info", short + " / " + long, "Under 15 min / over 3 h", "var(--other)", "<b>Check these</b><span>Very short interviews may be incomplete. Over 3 hours usually means the form was left open.</span>")}</div>` : `<div class="empty">No timing data yet. Times come from the start and end of each submission.</div>`, { wide: true, k: "var(--c1)", ic: "clock" });
   const bands = TBANDS.map((b) => ({ k: b[0], label: b[1], n: T.filter((r) => r.mins >= b[2] && r.mins < b[3]).length }));
   const dist = columnCard("t_dist", "Minutes taken per interview", bands, T.length, { k: "var(--c1)", ic: "bar" });
-  const by = {}; T.forEach((r) => { const e = r.enumerator_name || ""; if (e) (by[e] = by[e] || []).push(r.mins); });
-  const rows = Object.keys(by).map((e) => ({ label: lab("enumerator", e), v: median(by[e]), tip: by[e].length + " interview" + (by[e].length > 1 ? "s" : "") + ", median " + fmtMin(median(by[e])), ic: "person" })).sort((a, b) => b.v - a.v);
-  const enumCard = timeBars("t_enum", "Median time by enumerator", `<span>${rows.length} enumerator${rows.length === 1 ? "" : "s"}</span>`, rows, { k: "var(--c4)", ic: "person", empty: "No enumerator names in this data." });
+  const by = {}; cmp.filter((r) => r.mins !== null).forEach((r) => { const e = r.enumerator_name || ""; if (e) (by[e] = by[e] || []).push(r.mins); });
+  const rows = Object.keys(by).map((e) => ({ label: lab("enumerator", e), v: mean(by[e]), vt: "avg " + fmtMin(mean(by[e])) + " · " + by[e].length, f: "enum:" + e, sel: selE === e, tip: by[e].length + " interview" + (by[e].length > 1 ? "s" : "") + ". Average " + fmtMin(mean(by[e])) + ", median " + fmtMin(median(by[e])) + ", fastest " + fmtMin(Math.min(...by[e])) + ", slowest " + fmtMin(Math.max(...by[e])) + ". Click to filter.", ic: "person" })).sort((a, b) => b.v - a.v);
+  const enumCard = timeBars("t_enum", "Average time by interviewer", `<span>${rows.length} interviewer${rows.length === 1 ? "" : "s"}. Click one to filter.</span>`, rows, { k: "var(--c4)", ic: "person", empty: "No enumerator names in this data." });
   const sec = [["intro", "Introduction and consent"]].concat(SECTIONS);
   const srows = sec.map((s) => { const a = recs.map((r) => r.secs[s[0]]).filter((x) => x !== undefined); return a.length ? { label: s[1], v: median(a), tip: "Median over " + a.length + " interviews, average " + fmtMin(mean(a)), ic: ({ intro: "chat", location: "pin", caregiver: "users", socio: "briefcase", child: "smile", education: "school", talent: "star", disability: "idcard", health: "health", support: "walk", at: "wheelchair", env: "mountain" })[s[0]] } : null; }).filter(Boolean);
   const secCard = timeBars("t_sec", "Median time by section", `<span>${srows.length ? "Where the time goes" : "Needs the new form version"}</span>`, srows, { k: "var(--c3)", wide: true, ic: "layers", empty: "Section times appear once submissions come from the updated form, which records a time stamp at the start of each section." });
@@ -760,8 +766,8 @@ function tabCards(tab, recs) {
 function kpis(recs) {
   const n = recs.length;
   const reg = share(recs, "q38_registered_ncpwd", "yes"), cert = share(recs, "q37_has_certificate", "yes"), sch = share(recs, "q27_attending_school", "yes"), at = share(recs, "q69_has_at", "yes"), need = share(recs, "q70_1_needs_at", "yes");
-  const med = median(recs.map((r) => r.age)); const tmed = median(recs.map((r) => r.mins));
-  const k = [[n, null, "Children profiled", "one per interview", "var(--c1)", "users"], [med === null ? "n/a" : med, null, "Median age of child", "years", "var(--c4)", "smile"], [tmed === null ? "n/a" : Math.round(tmed), null, "Median interview time", "minutes", "var(--c3)", "clock"], [pct(reg.n, reg.den), 1, "Registered with NCPWD", `of ${reg.den} asked`, "var(--c3)", "idcard"], [pct(cert.n, cert.den), 1, "Hold a disability certificate", `of ${cert.den} registered`, "var(--c5)", "certificate"], [pct(sch.n, sch.den), 1, "Attending school", `of ${sch.den} asked`, "var(--c1)", "school"], [pct(at.n, at.den), 1, "Have an assistive device", `of ${at.den} asked`, "var(--c4)", "wheelchair"], [pct(need.n, need.den), 1, "Without a device who need one", `of ${need.den} asked`, "var(--c2)", "heart"]];
+  const med = median(recs.map((r) => r.age)); const tmed = mean(recs.map((r) => r.mins).filter((x) => x !== null));
+  const k = [[n, null, "Children profiled", "one per interview", "var(--c1)", "users"], [med === null ? "n/a" : med, null, "Median age of child", "years", "var(--c4)", "smile"], [tmed === null ? "n/a" : Math.round(tmed), null, "Average interview time", "minutes", "var(--c3)", "clock"], [pct(reg.n, reg.den), 1, "Registered with NCPWD", `of ${reg.den} asked`, "var(--c3)", "idcard"], [pct(cert.n, cert.den), 1, "Hold a disability certificate", `of ${cert.den} registered`, "var(--c5)", "certificate"], [pct(sch.n, sch.den), 1, "Attending school", `of ${sch.den} asked`, "var(--c1)", "school"], [pct(at.n, at.den), 1, "Have an assistive device", `of ${at.den} asked`, "var(--c4)", "wheelchair"], [pct(need.n, need.den), 1, "Without a device who need one", `of ${need.den} asked`, "var(--c2)", "heart"]];
   const C = 2 * Math.PI * 18;
   $("#kpis").innerHTML = k.map((x, i) => `<div class="kpi" style="--i:${i};--k:${x[4]}"${tipAttr(`<b>${esc(x[2])}</b><span>${esc(String(x[0]))}${x[1] ? "%" : ""} ${esc(x[3])}</span>`)}><i class="kic">${icon(x[5])}</i><b class="cu" data-v="${typeof x[0] === "number" ? x[0] : ""}" data-p="${x[1] ? "%" : ""}">${x[0]}${x[1] ? "%" : ""}</b>${x[1] ? `<span class="pict" aria-hidden="true">${Array.from({ length: 10 }, (_, j) => `<i class="${j < Math.round(x[0] / 10) ? "on" : ""}">${icon("person")}</i>`).join("")}</span>` : ""}<span>${x[2]}</span><small>${x[3]}</small></div>`).join("");
 }
@@ -795,7 +801,7 @@ document.addEventListener("click", (e) => {
 });
 function bindViz() { bindTimeline(); countUp(); document.querySelectorAll(".grid > .card, .kpis > .kpi").forEach((c, i) => c.style.setProperty("--i", i)); }
 function chipsRow() {
-  const names = { sub: (v) => lab("sub_county", v), ward: (v) => lab("ward", v), sex: (v) => lab("sex", v), age: (v) => (AGEBANDS.find((b) => b[0] === v) || [0, v])[1], from: (v) => "from " + v, to: (v) => "to " + v };
+  const names = { enum: (v) => lab("enumerator", v), sub: (v) => lab("sub_county", v), ward: (v) => lab("ward", v), sex: (v) => lab("sex", v), age: (v) => (AGEBANDS.find((b) => b[0] === v) || [0, v])[1], from: (v) => "from " + v, to: (v) => "to " + v };
   const on = Object.keys(S.filt).filter((k) => S.filt[k]);
   return on.length ? on.map((k) => `<button class="chip" type="button" data-clear="${k}" title="Remove this filter">${esc(names[k](S.filt[k]))} ✕</button>`).join("") : "";
 }
@@ -814,11 +820,13 @@ function renderAll() {
 function buildFilters() {
   const opt = (v, t) => `<option value="${esc(v)}">${esc(t)}</option>`;
   const subs = [...new Set(S.all.map((r) => r.sub).filter(Boolean))];
+  const ens = [...new Set(S.all.map((r) => r.enumerator_name).filter(Boolean))].sort((a, b) => lab("enumerator", a).localeCompare(lab("enumerator", b)));
+  $("#f-enum").innerHTML = opt("", "All interviewers") + ens.map((e) => opt(e, lab("enumerator", e))).join("");
   $("#f-sub").innerHTML = opt("", "All sub-counties") + subs.map((s) => opt(s, lab("sub_county", s))).join("");
   $("#f-sex").innerHTML = opt("", "All") + Object.keys(CH.sex).map((k) => opt(k, CH.sex[k])).join("");
   $("#f-age").innerHTML = opt("", "All ages") + AGEBANDS.map((b) => opt(b[0], b[1])).join("");
   fillWards(); ["from", "to"].forEach((x) => ($("#f-" + x).value = ""));
-  ["sub", "sex", "age"].forEach((x) => ($("#f-" + x).value = ""));
+  ["enum", "sub", "sex", "age"].forEach((x) => ($("#f-" + x).value = ""));
 }
 function fillWards() {
   const ws = [...new Set(S.all.filter((r) => !S.filt.sub || r.sub === S.filt.sub).map((r) => r.ward).filter(Boolean))];
@@ -839,13 +847,14 @@ document.addEventListener("click", (e) => {
   renderAll();
 });
 const setF = (k, v) => { S.filt[k] = v; renderAll(); };
+$("#f-enum").addEventListener("change", (e) => setF("enum", e.target.value));
 $("#f-sub").addEventListener("change", (e) => { S.filt.sub = e.target.value; S.filt.ward = ""; fillWards(); renderAll(); });
 $("#f-ward").addEventListener("change", (e) => setF("ward", e.target.value));
 $("#f-sex").addEventListener("change", (e) => setF("sex", e.target.value));
 $("#f-age").addEventListener("change", (e) => setF("age", e.target.value));
 $("#f-from").addEventListener("change", (e) => setF("from", e.target.value));
 $("#f-to").addEventListener("change", (e) => setF("to", e.target.value));
-$("#reset").addEventListener("click", () => { S.filt = { sub: "", ward: "", sex: "", age: "", from: "", to: "" }; buildFilters(); renderAll(); });
+$("#reset").addEventListener("click", () => { S.filt = { enum: "", sub: "", ward: "", sex: "", age: "", from: "", to: "" }; buildFilters(); renderAll(); });
 $("#pick").addEventListener("click", () => $("#file").click());
 function readFile(file) {
   const fr = new FileReader();
