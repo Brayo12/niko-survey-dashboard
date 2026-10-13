@@ -242,6 +242,26 @@ dialog input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; 
 .stk-row .lbl .ic { color: var(--c1); }
 .tilemap .tmi { position: absolute; right: 10px; top: 10px; font-size: 16px; opacity: .75; }
 .link .ic { font-size: 13px; }
+
+/* icon pass 2 */
+.oi { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; margin-right: 8px; font-size: 13px; color: var(--k, var(--c1)); background: color-mix(in srgb, var(--k, var(--c1)) 14%, var(--surface)); flex: none; }
+.row .l { display: flex; align-items: center; }
+.row:hover .oi { background: var(--k, var(--c1)); color: #fff; }
+.row .l .oi .ic { margin: 0; color: inherit; font-size: 13px; }
+.lg .sw { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; color: #fff; font-size: 13px; flex: none; }
+.lg .sw .ic { margin: 0; }
+.pict { grid-column: 1 / -1; display: flex; gap: 1px; margin-top: 6px; color: var(--line); font-size: 15px; }
+.pict i { display: block; line-height: 0; transition: transform .2s, color .2s; }
+.pict i.on { color: var(--k); }
+.kpi:hover .pict i { transform: translateY(-2px); }
+.kpi:hover .pict i:nth-child(2n) { transition-delay: .04s; }
+.tab .ic { font-size: 18px; }
+.tab[aria-selected="false"] .ic { color: var(--c1); }
+.kpi small { grid-row: auto; }
+.kpi .pict { grid-column: 1 / -1; grid-row: 3; margin-top: 6px; font-weight: 400; }
+.kpi span:not(.pict) { grid-row: 4; } .kpi small { grid-row: 5; }
+.kpi .kic { grid-column: 1 / -1; }
+.lg { grid-template-columns: 22px 1fr auto; }
 </style>
 
 <div class="band"><div class="band-in">
@@ -517,9 +537,14 @@ const IC = {
   bag: '<path d="M5 8h14l1 13H4z"/><path d="M9 8a3 3 0 0 1 6 0"/>',
   chat: '<path d="M4 5h16v11H9l-5 4z"/>',
   mountain: '<path d="M3 20l6-11 4 6 3-4 5 9z"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>'
 };
 const icon = (n, cls) => `<svg class="ic${cls ? " " + cls : ""}" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || IC.info}</svg>`;
+const OPT = [[/^(yes)\b|^(all|always)\b/i,"check"],[/^(no|none|never)\b|not (at all|registered|attend)/i,"x"],[/don.?t know|unsure|not sure/i,"help"],[/\bmale\b|\bboy|\bfemale\b|\bgirl|inter-?sex/i,"person"],[/health|clinic|hospital|doctor|nurse|medical|therap/i,"health"],[/school|teacher|class|educat|learn|grade|primary|secondary|universit|college|e-?arc/i,"school"],[/communit|group|neighbou|famil|relative|parent|mother|father|guardian|friend/i,"users"],[/self|home|house/i,"home"],[/phone|call|sms|whatsapp|internet|data/i,"phone"],[/cost|pay|fee|money|income|afford|cash|fund|sponsor|wallet|expens/i,"wallet"],[/certificate|card|ncpwd|registr|e-?citizen|document|id\b/i,"idcard"],[/transport|travel|distance|bus|road/i,"bus"],[/sport|talent|music|art|dance|draw|football/i,"star"],[/wheelchair|crutch|walker|hearing aid|spectacles|glasses|device|assistive|prosthe|brace/i,"wheelchair"],[/work|job|business|employ|farm|trade|casual/i,"briefcase"],[/food|meal|eat|nutrition/i,"utensils"],[/water|wash|bath/i,"droplet"],[/support|help|care|assist|counsel/i,"heart"],[/commun|speak|talk|sign|speech|language|chat/i,"chat"],[/vision|visual|seeing|hearing|physical|mental|intellectual|autism|disab|impair|chronic/i,"activity"],[/time|age|year|month|late|delay|wait|day/i,"clock"],[/outreach|screen|campaign|programme|government|county|national|ngo/i,"shield"]];
+const optIc = (label, id) => { const l = String(label || ""); for (const [re, n] of OPT) if (re.test(l)) return n; return ID_ICON[id] || "dot"; };
 const badge = (n) => `<span class="hi">${icon(n)}</span>`;
 const ID_ICON = { q23_child_sex: "person", ageband: "clock", cgage: "clock", q39_cert_category: "certificate", q41_cert_disability: "grid", ward: "pin", q25_identified_by: "health", q26_age_identified: "clock", q38_registered_ncpwd: "idcard", q37_has_certificate: "certificate", q43_cert_uses: "certificate", q44a_not_registered_why: "alert", q45_assessment_support: "health", q46_comm_improve: "chat", q27_attending_school: "school", q27_no_school_why: "alert", q28_earc_assessed: "school", q29_school_level: "school", q30_school_type: "school", q31_has_talent: "star", q32_talents: "star", q34_in_sports_group: "star", q47_welfare_clinic: "health", q47_no_clinic_why: "alert", q48_milestones_discussed: "chat", q69_has_at: "wheelchair", q70_1_needs_at: "wheelchair", q70_at_state: "wheelchair", q70_at_have: "wheelchair", q70_2_at_needed: "wheelchair", q71_at_challenges: "alert", q72_at_payer: "wallet", q73_at_cost: "wallet", q74_extra_help: "heart", fn_reg: "funnel", fn_at: "wheelchair", adl_radar: "radar", adl: "walk", env_radar: "radar", env: "mountain", env_imp: "alert", map: "pin", q11_caregiver_sex: "person", q14_relationship: "users", q13_head_of_household: "home", q16_caregiver_attended_school: "book", q17_caregiver_highest_grade: "book", q18_has_phone: "phone", q20_smartphone: "phone", q19_no_phone_why: "phone", main_activity_7d: "briefcase", econ_engaged: "briefcase", econ_activity: "briefcase", gov_programme: "shield", nongov_programme: "shield", reduced_income: "wallet", care_support_needed: "heart", support_group: "users", support_group_type: "users" };
 const ADLIC = { q52_eating: "utensils", q54_washing: "droplet", q55_dressing: "shirt", q56_toilet: "toilet", q57_moving_house: "walk", q58_outside_house: "door", q59_transport: "bus", q60_shopping: "bag", q61_water: "droplet", q63_education_access: "school", q65_communicating: "chat", q66_caring_family: "heart", q68_community: "users", env_transport: "bus", env_natural: "mountain", env_info: "info", env_att_home: "home", env_att_school: "school", env_att_community: "users" };
@@ -554,7 +579,7 @@ function barsBody(ents, den, max, id, o) {
   if (!ents.length) return EMPTY;
   const show = S.full[id] ? ents : ents.slice(0, max);
   const hi = Math.max(...show.map((e) => e.n), 1);
-  const rows = show.map((e, i) => { const p = pct(e.n, den); const w = o && o.rel ? (e.n / hi) * 100 : p; return `<div class="row mark" data-hk="${i}"${tipAttr(tipHtml(e.label, e.n, den))} tabindex="0"><span class="l">${esc(e.label)}</span><span class="v">${e.n} · ${p}%</span><span class="t"><i style="width:${Math.max(w, e.n ? 1.5 : 0)}%;animation-delay:${i * 40}ms"></i></span></div>`; }).join("");
+  const rows = show.map((e, i) => { const p = pct(e.n, den); const w = o && o.rel ? (e.n / hi) * 100 : p; return `<div class="row mark" data-hk="${i}"${tipAttr(tipHtml(e.label, e.n, den))} tabindex="0"><span class="l"><i class="oi">${icon(optIc(e.label, id))}</i><span>${esc(e.label)}</span></span><span class="v">${e.n} · ${p}%</span><span class="t"><i style="width:${Math.max(w, e.n ? 1.5 : 0)}%;animation-delay:${i * 40}ms"></i></span></div>`; }).join("");
   return `<div class="rows">${rows}</div>`;
 }
 function barCard(id, title, ents, den, o) {
@@ -574,12 +599,12 @@ function donutBody(ents, den, o) {
   let a = -Math.PI / 2;
   const slices = f.map((e, i) => { const a1 = a + (e.n / tot) * Math.PI * 2; const d = arc(110, 110, 62, 104, a, a1); a = a1; const fl = o.filter && !e.other ? ` data-filter="${esc(o.filter(e.k))}"` : "";
     return `<path class="slice mark" style="--s:${i}" tabindex="0" data-hk="${i}" data-lab="${esc(e.label)}" data-pc="${pct(e.n, den)}%"${fl}${tipAttr(tipHtml(e.label, e.n, den))} d="${d}" fill="${e.other ? "var(--other)" : CI(i)}"/>`; }).join("");
-  const legend = f.map((e, i) => `<li class="lg mark" data-hk="${i}"><i style="background:${e.other ? "var(--other)" : CI(i)}"></i><span>${esc(e.label)}</span><b>${pct(e.n, den)}%<small>${e.n}</small></b></li>`).join("");
+  const legend = f.map((e, i) => `<li class="lg mark" data-hk="${i}"><i class="sw" style="background:${e.other ? "var(--other)" : CI(i)}">${icon(optIc(e.label, o.id))}</i><span>${esc(e.label)}</span><b>${pct(e.n, den)}%<small>${e.n}</small></b></li>`).join("");
   return `<div class="donut-wrap"><svg class="donut" viewBox="0 0 220 220" role="img" aria-label="${esc(f.map((e) => e.label + " " + pct(e.n, den) + "%").join(", "))}">${slices}<text class="dc-n" x="110" y="112" data-def="${esc(o.center != null ? o.center : den)}">${esc(o.center != null ? o.center : den)}</text><text class="dc-l" x="110" y="130" data-def="${esc(o.centerLabel || "answered")}">${esc(o.centerLabel || "answered")}</text></svg><ul class="legend">${legend}</ul></div>`;
 }
 function donutCard(id, title, ents, den, o) {
   o = o || {};
-  const body = S.tbl[id] ? tableBody(ents, den) : donutBody(ents, den, o);
+  const body = S.tbl[id] ? tableBody(ents, den) : donutBody(ents, den, { ...o, id });
   return card(id, title, `<span>${den} answered</span>${toggles(id, null, 0)}`, body, { ...o, defIcon: "pie" });
 }
 
@@ -770,7 +795,7 @@ function kpis(recs) {
   const med = median(recs.map((r) => r.age));
   const k = [[n, null, "Children profiled", "one per interview", "var(--c1)", "users"], [med === null ? "n/a" : med, null, "Median age of child", "years", "var(--c4)", "smile"], [pct(reg.n, reg.den), 1, "Registered with NCPWD", `of ${reg.den} asked`, "var(--c3)", "idcard"], [pct(cert.n, cert.den), 1, "Hold a disability certificate", `of ${cert.den} registered`, "var(--c5)", "certificate"], [pct(sch.n, sch.den), 1, "Attending school", `of ${sch.den} asked`, "var(--c1)", "school"], [pct(at.n, at.den), 1, "Have an assistive device", `of ${at.den} asked`, "var(--c4)", "wheelchair"], [pct(need.n, need.den), 1, "Without a device who need one", `of ${need.den} asked`, "var(--c2)", "heart"]];
   const C = 2 * Math.PI * 18;
-  $("#kpis").innerHTML = k.map((x, i) => `<div class="kpi" style="--i:${i};--k:${x[4]}"${tipAttr(`<b>${esc(x[2])}</b><span>${esc(String(x[0]))}${x[1] ? "%" : ""} ${esc(x[3])}</span>`)}><i class="kic">${icon(x[5])}</i><b class="cu" data-v="${typeof x[0] === "number" ? x[0] : ""}" data-p="${x[1] ? "%" : ""}">${x[0]}${x[1] ? "%" : ""}</b>${x[1] ? `<svg class="ring" viewBox="0 0 44 44" aria-hidden="true"><circle class="tr" cx="22" cy="22" r="18"/><circle class="fg" cx="22" cy="22" r="18" stroke-dasharray="${((x[0] / 100) * C).toFixed(1)} ${C.toFixed(1)}"/></svg>` : ""}<span>${x[2]}</span><small>${x[3]}</small></div>`).join("");
+  $("#kpis").innerHTML = k.map((x, i) => `<div class="kpi" style="--i:${i};--k:${x[4]}"${tipAttr(`<b>${esc(x[2])}</b><span>${esc(String(x[0]))}${x[1] ? "%" : ""} ${esc(x[3])}</span>`)}><i class="kic">${icon(x[5])}</i><b class="cu" data-v="${typeof x[0] === "number" ? x[0] : ""}" data-p="${x[1] ? "%" : ""}">${x[0]}${x[1] ? "%" : ""}</b>${x[1] ? `<span class="pict" aria-hidden="true">${Array.from({ length: 10 }, (_, j) => `<i class="${j < Math.round(x[0] / 10) ? "on" : ""}">${icon("person")}</i>`).join("")}</span>` : ""}<span>${x[2]}</span><small>${x[3]}</small></div>`).join("");
 }
 function countUp() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
