@@ -1,5 +1,5 @@
-# Never commit survey data (child disability information)
-data.csv
+# Survey exports are ignored, except the de-identified data.csv the dashboard loads
 *.xlsx
 *.xls
 *.csv
+!data.csv
