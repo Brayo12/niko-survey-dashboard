@@ -1,5 +1,6 @@
-# Survey exports are ignored, except the de-identified data.csv the dashboard loads
+# Survey exports are ignored, except the de-identified files the dashboard loads
 *.xlsx
 *.xls
 *.csv
 !data.csv
+!services.csv

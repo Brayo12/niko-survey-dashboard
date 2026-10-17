@@ -536,7 +536,7 @@ const optIc = (label, id) => { const l = String(label || ""); for (const [re, n]
 const badge = (n) => `<span class="hi">${icon(n)}</span>`;
 const ID_ICON = { q23_child_sex: "person", ageband: "clock", cgage: "clock", q39_cert_category: "certificate", q41_cert_disability: "grid", ward: "pin", q25_identified_by: "health", q26_age_identified: "clock", q38_registered_ncpwd: "idcard", q37_has_certificate: "certificate", q43_cert_uses: "certificate", q44a_not_registered_why: "alert", q45_assessment_support: "health", q46_comm_improve: "chat", q27_attending_school: "school", q27_no_school_why: "alert", q28_earc_assessed: "school", q29_school_level: "school", q30_school_type: "school", q31_has_talent: "star", q32_talents: "star", q34_in_sports_group: "star", q47_welfare_clinic: "health", q47_no_clinic_why: "alert", q48_milestones_discussed: "chat", q69_has_at: "wheelchair", q70_1_needs_at: "wheelchair", q70_at_state: "wheelchair", q70_at_have: "wheelchair", q70_2_at_needed: "wheelchair", q71_at_challenges: "alert", q72_at_payer: "wallet", q73_at_cost: "wallet", q74_extra_help: "heart", fn_reg: "funnel", fn_at: "wheelchair", adl_radar: "radar", adl: "walk", env_radar: "radar", env: "mountain", env_imp: "alert", map: "pin", q11_caregiver_sex: "person", q14_relationship: "users", q13_head_of_household: "home", q16_caregiver_attended_school: "book", q17_caregiver_highest_grade: "book", q18_has_phone: "phone", q20_smartphone: "phone", q19_no_phone_why: "phone", main_activity_7d: "briefcase", econ_engaged: "briefcase", econ_activity: "briefcase", gov_programme: "shield", nongov_programme: "shield", reduced_income: "wallet", care_support_needed: "heart", support_group: "users", support_group_type: "users" };
 const ADLIC = { q52_eating: "utensils", q54_washing: "droplet", q55_dressing: "shirt", q56_toilet: "toilet", q57_moving_house: "walk", q58_outside_house: "door", q59_transport: "bus", q60_shopping: "bag", q61_water: "droplet", q63_education_access: "school", q65_communicating: "chat", q66_caring_family: "heart", q68_community: "users", env_transport: "bus", env_natural: "mountain", env_info: "info", env_att_home: "home", env_att_school: "school", env_att_community: "users" };
-const TABICON = { overview: "dash", disability: "idcard", edu: "school", at: "wheelchair", adl: "walk", env: "mountain", care: "users", time: "clock", fo_over: "activity", fo_int: "users", fo_dq: "shield" };
+const TABICON = { overview: "dash", disability: "idcard", edu: "school", at: "wheelchair", adl: "walk", env: "mountain", care: "users", time: "clock", fo_over: "activity", fo_int: "users", fo_dq: "shield", sv_over: "clipboard", sv_site: "pin", sv_link: "users", sv_dq: "shield" };
 
 /* ---------- visual helpers ---------- */
 const CI = (i) => (typeof i === "string" ? i : i < 0 ? "var(--other)" : `var(--c${(i % 6) + 1})`);
@@ -744,7 +744,8 @@ function bindTimeline() {
 /* ---------- tabs ---------- */
 const TABS_R = [["overview", "Overview"], ["disability", "Disability and registration"], ["edu", "Education, talent and health"], ["at", "Assistive technology"], ["adl", "Daily activities"], ["env", "Environment"], ["care", "Caregivers"]];
 const TABS_F = [["fo_over", "Fieldwork overview"], ["fo_int", "Interviewers"], ["time", "Interview time"], ["fo_dq", "Data quality"]];
-const tabsFor = () => (S.level === "field" ? TABS_F : TABS_R);
+const TABS_S = [["sv_over", "Services overview"], ["sv_site", "By camp site"], ["sv_link", "Linked to the survey"], ["sv_dq", "Matching and notes"]];
+const tabsFor = () => (S.level === "field" ? TABS_F : S.level === "svc" ? TABS_S : TABS_R);
 function binaryFunnel(recs) {
   const n = recs.length; const reg = recs.filter((r) => r.q38_registered_ncpwd === "yes"); const cert = reg.filter((r) => r.q37_has_certificate === "yes");
   return [{ label: "Children profiled", n }, { label: "Registered with NCPWD", n: reg.length }, { label: "Hold a disability certificate", n: cert.length }];
@@ -785,6 +786,7 @@ function timeCards(recs) {
   return [stats, dist, enumCard, secCard];
 }
 function tabCards(tab, recs) {
+  if (S.level === "svc") return svTabs(tab, recs);
   const fc = (f, t, o) => fieldCard(recs, f, t, o);
   switch (tab) {
     case "overview": {
@@ -826,6 +828,7 @@ function tabCards(tab, recs) {
 /* KPI tiles: ring gauge for percentages, count-up numbers */
 function kpis(recs) {
   if (S.level === "field") return kpisField(recs);
+  if (S.level === "svc") return kpisSvc(recs);
   const n = recs.length;
   const reg = share(recs, "q38_registered_ncpwd", "yes"), cert = share(recs, "q37_has_certificate", "yes"), sch = share(recs, "q27_attending_school", "yes"), at = share(recs, "q69_has_at", "yes"), need = share(recs, "q70_1_needs_at", "yes");
   const med = median(recs.map((r) => r.age)); const tmed = mean(recs.map((r) => r.mins).filter((x) => x !== null));
@@ -954,15 +957,126 @@ function timeExtras(recs) {
   return [vcCard("t_trend", "Average minutes per field day", "<span>Is the team getting faster?</span>", days, "min", { k: "var(--c3)", ic: "activity" }), vcCard("t_hour", "Average minutes by start hour", "<span>Late-day interviews can run longer or shorter</span>", hrs, "min", { k: "var(--c4)", ic: "clock" })];
 }
 /* level switch */
-const LEVELS = [["resp", "Respondent data", "users"], ["field", "Fieldwork and interviewers", "clipboard"]];
+const LEVELS = [["resp", "Respondent data", "users"], ["field", "Fieldwork and interviewers", "clipboard"], ["svc", "Services at the camp", "heart"]];
 const levelsHtml = () => LEVELS.map((l) => `<button type="button" class="lvl" role="tab" aria-selected="${S.level === l[0]}" data-level="${l[0]}">${icon(l[2])}<span>${l[1]}</span></button>`).join("");
 document.addEventListener("click", (e) => { const b = e.target.closest("[data-level]"); if (!b || b.dataset.level === S.level) return; S.level = b.dataset.level; S.tab = tabsFor()[0][0]; renderAll(); });
+/* ---------- Services at the camp (triage slips linked to survey interviews) ---------- */
+const SV_STEPS = [["s1", "Registration documents", "file"], ["s2", "Verification", "check"], ["s3", "eCitizen registration", "idcard"], ["s4", "Support needs assessment", "heart"], ["s5", "Medical assessment", "health"], ["s6", "Education placement", "school"], ["s7", "Disability registration", "clipboard"], ["s8", "Disability certification", "certificate"], ["s9", "Assistive technology service", "wheelchair"], ["s10", "Exit", "door"]];
+const SV_STATE = [["D", "Done at the camp", 0], ["N", "Not done at the camp", 3], ["B", "Both boxes ticked", 2], ["X", "Crossed out", 5], ["-", "Not marked", -1]];
+const SV_TAGS = { diapers: "Diapers", sanitary: "Sanitary pads or towels", therapy: "Therapy (physio, OT, speech)", nutrition: "Nutrition review", wheelchair: "Wheelchair", spectacles: "Spectacles or refraction", homecare: "Home-based care advice", drugs: "Medicine given" };
+const SV_WHY = { has_cert: "Already has a certificate", over_age: "Adult or above the age limit", referral: "Referred or placement elsewhere", no_phone: "No phone for eCitizen" };
+S.svc = [];
+async function loadSvc() {
+  try {
+    const res = await fetch("services.csv", { cache: "no-store" }); if (!res.ok) return;
+    const wb = XLSX.read(await res.arrayBuffer(), { type: "array", raw: true });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: false });
+    S.svc = rows.map((r) => ({ slip: String(r.slip), site: String(r.site), id: String(r.survey_id || ""), conf: String(r.match || ""), dup: String(r.dup) === "1", st: SV_STEPS.map((s) => String(r[s[0]] || "-").trim() || "-"), tags: String(r.tags || "").split(";").filter(Boolean) }));
+  } catch (e) { S.svc = []; }
+}
+const svActive = () => Object.keys(S.filt).some((k) => S.filt[k]);
+function svRows(recs) {
+  const live = S.svc.filter((s) => !s.dup);
+  if (!svActive()) return live;
+  const ids = new Set((recs || filtered()).map((r) => String(r.id)));
+  return live.filter((s) => s.id && ids.has(s.id));
+}
+const svRecById = () => { const m = {}; S.all.forEach((r) => (m[String(r.id)] = r)); return m; };
+const svCount = (rows, i, code) => rows.filter((s) => s.st[i] === code).length;
+const svNote = (n, d) => `${n} of ${d} (${pct(n, d)}%)`;
+const svEmpty = () => S.svc.length ? "No service records for the current filters." : "No service records loaded. Publish services.csv next to this page.";
+
+function kpisSvc(recs) {
+  const rows = svRows(recs), n = rows.length, linked = rows.filter((s) => s.id).length;
+  const sites = {}; rows.forEach((s) => (sites[s.site] = (sites[s.site] || 0) + 1));
+  const siteTxt = Object.keys(sites).map((k) => k + " " + sites[k]).join(", ") || "no records";
+  const exit = svCount(rows, 9, "D") + svCount(rows, 9, "B");
+  const d = (i) => svCount(rows, i, "D");
+  const k = [[n, null, "Service records", siteTxt, "var(--c1)", "clipboard"], [pct(linked, n), 1, "Linked to a survey interview", svNote(linked, n), "var(--c3)", "users"], [pct(exit, n), 1, "Reached Exit", svNote(exit, n), "var(--c5)", "door"], [pct(d(3), n), 1, "Support needs assessed at camp", svNote(d(3), n), "var(--c2)", "heart"], [pct(d(7), n), 1, "Disability certification done at camp", svNote(d(7), n), "var(--c4)", "certificate"], [pct(d(8), n), 1, "Received an assistive technology service", svNote(d(8), n), "var(--c6)", "wheelchair"]];
+  $("#kpis").innerHTML = k.map((x, i) => `<div class="kpi" style="--i:${i};--k:${x[4]}"${tipAttr(`<b>${esc(x[2])}</b><span>${esc(String(x[0]))}${x[1] ? "%" : ""} ${esc(x[3])}</span>`)}><i class="kic">${icon(x[5])}</i><b class="cu" data-v="${typeof x[0] === "number" ? x[0] : ""}" data-p="${x[1] ? "%" : ""}">${x[0]}${x[1] ? "%" : ""}</b>${x[1] ? `<span class="pict" aria-hidden="true">${Array.from({ length: 10 }, (_, j) => `<i class="${j < Math.round(x[0] / 10) ? "on" : ""}">${icon("person")}</i>`).join("")}</span>` : ""}<span>${x[2]}</span><small>${x[3]}</small></div>`).join("");
+}
+
+function svStacked(id, title, sub, rows, o) {
+  o = o || {};
+  if (!rows.length) return card(id, title, `<span>${esc(sub)}</span>`, `<div class="empty">${svEmpty()}</div>`, { wide: true, k: o.k, ic: "layers" });
+  const legend = `<div class="legend-h">${SV_STATE.map((c, i) => `<span class="lg mark" data-hk="${i}"><i style="background:${c[2] < 0 ? "var(--other)" : CI(c[2])}"></i><span>${esc(c[1])}</span></span>`).join("")}</div>`;
+  const body = SV_STEPS.map((s) => { const i = SV_STEPS.indexOf(s); const n = rows.length;
+    const segs = SV_STATE.map((c, j) => { const v = svCount(rows, i, c[0]); return v ? `<span class="seg mark${c[2] === 3 ? " dk" : ""}" data-hk="${j}" style="width:${(v / n) * 100}%;background:${c[2] < 0 ? "var(--other)" : CI(c[2])};animation-delay:${j * 60}ms"${tipAttr(tipHtml(s[1] + ": " + c[1], v, n))}>${pct(v, n) >= 9 ? pct(v, n) + "%" : ""}</span>` : ""; }).join("");
+    return `<div class="stk-row"><span class="lbl">${icon(s[2])}<span>${esc(s[1])}</span></span><div class="stk-bar">${segs}</div><span class="n">${svCount(rows, i, "D")} of ${n} done</span></div>`; }).join("");
+  return card(id, title, `<span>${esc(sub)}</span>`, `<div class="chart-in">${legend}<div class="stk">${body}</div></div>`, { wide: true, k: o.k, ic: "layers" });
+}
+function svTagBars(id, title, meta, defs, rows, den, o) {
+  const ents = Object.keys(defs).map((k) => ({ k, label: defs[k], n: rows.filter((s) => s.tags.includes(k)).length })).filter((e) => e.n).sort((a, b) => b.n - a.n);
+  const rs = ents.map((e) => ({ label: e.label, v: e.n, vt: e.n + " · " + pct(e.n, den) + "%", tip: svNote(e.n, den) }));
+  return timeBars(id, title, `<span>${meta}</span>`, rs, { k: o.k, ic: o.ic, empty: "Nothing recorded in the comments for the current filters." });
+}
+
+function svOver(recs) {
+  const rows = svRows(recs), n = rows.length;
+  const done = SV_STEPS.map((s, i) => ({ label: s[1], v: svCount(rows, i, "D"), vt: svCount(rows, i, "D") + " · " + pct(svCount(rows, i, "D"), n) + "%", tip: svNote(svCount(rows, i, "D"), n) + " done at the camp" }));
+  const bars = timeBars("sv_done", "Services delivered at the camp", `<span>${n} records. Share ticked "Done at the camp" for each step</span>`, done, { k: "var(--c1)", ic: "check", empty: svEmpty() });
+  const stk = svStacked("sv_stack", "How each step was recorded", `Every step for ${n} records: done, not done, both boxes, crossed out or left blank`, rows, { k: "var(--c3)" });
+  const at = rows.filter((s) => s.st[8] === "D" || s.st[8] === "B");
+  const items = svTagBars("sv_items", "What was given at the assistive technology point", `Items named in the comments. ${at.length} records show the AT step done, so shares use ${at.length}`, SV_TAGS, rows, Math.max(at.length, 1), { k: "var(--c6)", ic: "wheelchair" });
+  const nd = rows.filter((s) => s.st.includes("N"));
+  const why = svTagBars("sv_why", "Why steps were not done at the camp", `Reasons in the comments, among ${nd.length} records with at least one step marked not done`, SV_WHY, nd, Math.max(nd.length, 1), { k: "var(--c4)", ic: "info" });
+  const bs = {}; rows.forEach((s) => (bs[s.site] = (bs[s.site] || 0) + 1));
+  const site = donutCard("sv_sitepie", "Records by camp site", Object.keys(bs).map((k, i) => ({ k, label: k, n: bs[k] })), n, { centerLabel: "records", k: "var(--c2)", ic: "pin" });
+  return [bars, site, stk, items, why];
+}
+
+function svSite(recs) {
+  const rows = svRows(recs); const sites = [...new Set(S.svc.filter((s) => !s.dup).map((s) => s.site))];
+  const by = {}; sites.forEach((k) => (by[k] = rows.filter((s) => s.site === k)));
+  const head = `<tr><th>Step</th>${sites.map((k) => `<th>${esc(k)} (${by[k].length})</th>`).join("")}<th>All sites (${rows.length})</th></tr>`;
+  const body = SV_STEPS.map((s, i) => `<tr><th scope="row">${icon(s[2], "oi")}${esc(s[1])}</th>${sites.map((k) => `<td>${by[k].length ? svNote(svCount(by[k], i, "D"), by[k].length) : "·"}</td>`).join("")}<td>${rows.length ? svNote(svCount(rows, i, "D"), rows.length) : "·"}</td></tr>`).join("");
+  const tbl = card("sv_sitetbl", "Services done at the camp, by site", `<span>Number and share of records with the step ticked "Done at the camp"</span>`, `<div class="tblwrap"><table class="lbt"><thead>${head}</thead><tbody>${body}</tbody></table></div>`, { wide: true, k: "var(--c1)", ic: "pin" });
+  const cards = sites.map((k, i) => svStacked("sv_site_" + i, k + " camp", `${by[k].length} records`, by[k], { k: CI(i + 2) }));
+  const link = sites.map((k) => ({ label: k, v: by[k].filter((s) => s.id).length, vt: svNote(by[k].filter((s) => s.id).length, by[k].length), tip: svNote(by[k].filter((s) => s.id).length, by[k].length) + " linked to a survey interview" }));
+  const lb = timeBars("sv_sitelink", "Records linked to a survey interview", `<span>How many triage slips could be matched to an interview, by site</span>`, link, { k: "var(--c3)", ic: "users", empty: svEmpty() });
+  return [tbl, lb].concat(cards);
+}
+
+function svLink(recs) {
+  const rows = svRows(recs).filter((s) => s.id), n = rows.length; const by = svRecById();
+  const pairs = rows.map((s) => ({ s, r: by[s.id] })).filter((p) => p.r);
+  if (!pairs.length) return [card("sv_none", "Linked records", "<span>Survey interviews matched to a triage slip</span>", `<div class="empty">${svEmpty()}</div>`, { wide: true, ic: "users" })];
+  const m = pairs.length;
+  const grp = (keyf, labf, order) => { const g = {}; pairs.forEach((p) => { const k = keyf(p.r) || "_"; (g[k] = g[k] || []).push(p.s); }); return Object.keys(g).sort((a, b) => (order ? order.indexOf(a) - order.indexOf(b) : g[b].length - g[a].length)).map((k) => ({ k, label: k === "_" ? "Not recorded" : labf(k), rows: g[k] })); };
+  const dt = (g) => `<div class="tblwrap"><table class="lbt"><thead><tr><th>Group</th><th>Linked</th>${[3, 4, 5, 6, 7, 8].map((i) => `<th>${esc(SV_STEPS[i][1])}</th>`).join("")}</tr></thead><tbody>${g.map((x) => `<tr><th scope="row">${esc(x.label)}</th><td>${x.rows.length}</td>${[3, 4, 5, 6, 7, 8].map((i) => `<td>${svNote(svCount(x.rows, i, "D"), x.rows.length)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const sub = grp((r) => r.sub, (k) => lab("sub_county", k));
+  const age = grp((r) => bandOf(r.age), (k) => (AGEBANDS.find((b) => b[0] === k) || [0, k])[1], AGEBANDS.map((b) => b[0]).concat(["_"]));
+  const sex = grp((r) => r.q23_child_sex, (k) => lab("sex", k));
+  const reg = grp((r) => r.q38_registered_ncpwd, (k) => (k === "yes" ? "Registered with NCPWD (survey)" : "Not registered with NCPWD (survey)"), ["yes", "no", "_"]);
+  const dev = grp((r) => r.q69_has_at, (k) => (k === "yes" ? "Had an assistive device (survey)" : "No assistive device (survey)"), ["yes", "no", "_"]);
+  const info = `<span>${m} service records linked to a survey interview. Each cell is the number and share ticked "Done at the camp"</span>`;
+  const t = (id, title, g, ic) => card(id, title, info, dt(g), { wide: true, k: "var(--c1)", ic });
+  const cov = {}; S.all.forEach((r) => { const d = r.date ? dkey(r.date) : "·"; cov[d] = cov[d] || { n: 0, l: 0 }; cov[d].n++; if (rows.some((s) => s.id === String(r.id))) cov[d].l++; });
+  const covRows = Object.keys(cov).sort().filter((d) => cov[d].n).map((d) => ({ label: d, v: cov[d].l, vt: svNote(cov[d].l, cov[d].n), tip: svNote(cov[d].l, cov[d].n) + " of that day's interviews have a service record" }));
+  const covCard = timeBars("sv_cov", "Interviews with a service record, by interview day", `<span>${m} of ${S.all.length} interviews (${pct(m, S.all.length)}%) have a matched slip</span>`, covRows, { k: "var(--c2)", ic: "calendar" in IC ? "calendar" : "clock", empty: "No interviews." });
+  return [t("sv_l_sub", "Services by sub-county of the child", sub, "pin"), t("sv_l_age", "Services by age of the child", age, "clock"), t("sv_l_sex", "Services by sex of the child", sex, "person"), t("sv_l_reg", "Disability registration: survey answer against camp service", reg, "idcard"), t("sv_l_dev", "Assistive device at survey against camp AT service", dev, "wheelchair"), covCard];
+}
+
+function svDq() {
+  const live = S.svc.filter((s) => !s.dup), dups = S.svc.length - live.length;
+  const c = { high: 0, medium: 0, name: 0, none: 0 }; live.forEach((s) => (c[s.id ? s.conf || "high" : "none"]++));
+  const ents = [{ k: "high", label: "Matched on number, day and name", n: c.high }, { k: "medium", label: "Matched on number and day, name partly different", n: c.medium }, { k: "name", label: "Matched on name and day only", n: c.name }, { k: "none", label: "No survey interview found", n: c.none }].filter((e) => e.n);
+  const pie = donutCard("sv_match", "How the slips were matched", ents, live.length, { centerLabel: "slips", k: "var(--c3)", ic: "check" });
+  const un = live.filter((s) => !s.id);
+  const tbl = card("sv_un", "Slips with no survey interview", `<span>${un.length} of ${live.length} slips (${pct(un.length, live.length)}%) could not be matched. The child may not have been interviewed yet, or the number or name was written differently</span>`, `<div class="tblwrap"><table class="lbt"><thead><tr><th>Slip</th><th>Site</th><th>Steps done at camp</th><th>Comments</th></tr></thead><tbody>${un.map((s) => `<tr><th scope="row">${esc(s.slip)}</th><td>${esc(s.site)}</td><td>${s.st.filter((x) => x === "D").length} of 10</td><td>${esc(s.tags.map((t) => SV_TAGS[t] || SV_WHY[t] || t).join(", ") || "·")}</td></tr>`).join("")}</tbody></table></div>`, { wide: true, k: "var(--c6)", ic: "alert" });
+  const note = card("sv_notes", "About these records", `<span>Read before quoting the numbers</span>`, `<div class="empty" style="text-align:left;line-height:1.6">The triage slips were transcribed by hand from the scanned sheets. Ticks that sit between two boxes were read as the nearest box. Registration numbers restart at each site, so a slip is matched to an interview on its number plus the day of the camp. ${dups ? dups + " duplicate slip" + (dups > 1 ? "s were" : " was") + " ignored (same person written up twice). " : ""}Names, passwords and eCitizen details on the slips are not loaded here.</div>`, { wide: true, k: "var(--c5)", ic: "info" });
+  return [pie, tbl, note];
+}
+function svTabs(tab, recs) {
+  switch (tab) { case "sv_over": return svOver(recs); case "sv_site": return svSite(recs); case "sv_link": return svLink(recs); case "sv_dq": return svDq(); }
+  return [];
+}
 
 /* ---------- rendering ---------- */
 function renderAll() {
   const recs = filtered();
   $("#status").innerHTML = `<span class="pill${S.demo ? " demo" : ""}">${S.demo ? "No data yet" : "Loaded data"}</span><span>${esc(S.source)}</span>` + (S.refused ? `<span>${S.refused} refusal${S.refused > 1 ? "s" : ""} excluded</span>` : "");
-  $("#count").textContent = `${recs.length} of ${S.all.length} interviews`;
+  $("#count").textContent = S.level === "svc" ? `${svRows(recs).length} of ${S.svc.filter((s) => !s.dup).length} service records` : `${recs.length} of ${S.all.length} interviews`;
   kpis(recs);
   $("#levels").innerHTML = levelsHtml(); $("#tabs").innerHTML = tabsFor().map((t) => `<button class="tab" role="tab" aria-selected="${t[0] === S.tab}" data-tab="${t[0]}">${icon(TABICON[t[0]])}${t[1]}</button>`).join("");
   $("#grid").innerHTML = tabCards(S.tab, recs).join("");
@@ -1065,7 +1179,7 @@ $("#theme").addEventListener("click", () => { const dark = document.documentElem
 /* start: look for a data.csv published next to the page, else start empty */
 (async () => {
   try {
-    const res = await fetch("data.csv", { cache: "no-store" });
+    await loadSvc(); const res = await fetch("data.csv", { cache: "no-store" });
     if (res.ok) { const buf = await res.arrayBuffer(); const wb = XLSX.read(buf, { type: "array", cellDates: true }); const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true }); if (rows.length) { ingest(rows, "data.csv (" + rows.length + " rows)", false); return; } }
   } catch (e) { /* no published data */ }
   ingest([], "No data loaded yet. Connect to Inform or load an export file.", true);
