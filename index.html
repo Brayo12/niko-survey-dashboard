@@ -1119,7 +1119,10 @@ function svDev(recs) {
 /* ---- chart export: PNG image, CSV data, print to PDF ---- */
 const XP_SLUG = (s) => String(s || "chart").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "chart";
 const XP_CSV = (v) => { v = String(v == null ? "" : v).replace(/\s+/g, " ").trim(); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-function xpSave(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+async function xpSave(blob, name) {
+  try { const dl = window.claude && window.claude.use ? await window.claude.use("downloads") : null; if (dl) { try { await dl.save({ filename: name, data: blob }); } catch (e) {} return; } } catch (e) {}
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
 function xpRows(card) {
   const t = card.querySelector("table");
   if (t) return [...t.querySelectorAll("tr")].map((tr) => [...tr.children].map((c) => c.textContent));
