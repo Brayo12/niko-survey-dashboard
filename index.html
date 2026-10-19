@@ -758,7 +758,7 @@ function bindTimeline() {
 /* ---------- tabs ---------- */
 const TABS_R = [["overview", "Overview"], ["disability", "Disability and registration"], ["edu", "Education, talent and health"], ["at", "Assistive technology"], ["adl", "Daily activities"], ["env", "Environment"], ["care", "Caregivers"]];
 const TABS_F = [["fo_over", "Fieldwork overview"], ["fo_int", "Interviewers"], ["time", "Interview time"], ["fo_dq", "Data quality"]];
-const TABS_S = [["sv_over", "Services overview"], ["sv_site", "By camp site"], ["sv_link", "Linked to the survey"], ["sv_dev", "Therapy and devices"], ["sv_dq", "Matching and notes"]];
+const TABS_S = [["sv_over", "Services overview"], ["sv_site", "By camp site"], ["sv_link", "Linked to the survey"], ["sv_dev", "Therapy and devices"]];
 const tabsFor = () => (S.level === "field" ? TABS_F : S.level === "svc" ? TABS_S : TABS_R);
 function binaryFunnel(recs) {
   const n = recs.length; const reg = recs.filter((r) => r.q38_registered_ncpwd === "yes"); const cert = reg.filter((r) => r.q37_has_certificate === "yes");
@@ -1014,7 +1014,7 @@ function svStacked(id, title, sub, rows, o) {
   o = o || {};
   if (!rows.length) return card(id, title, `<span>${esc(sub)}</span>`, `<div class="empty">${svEmpty()}</div>`, { wide: true, k: o.k, ic: "layers" });
   const legend = `<div class="legend-h">${SV_STATE.map((c, i) => `<span class="lg mark" data-hk="${i}"><i style="background:${c[2] < 0 ? "var(--other)" : CI(c[2])}"></i><span>${esc(c[1])}</span></span>`).join("")}</div>`;
-  const body = SV_STEPS.map((s) => { const i = SV_STEPS.indexOf(s); const n = rows.length;
+  const body = SV_STEPS.slice(1).map((s) => { const i = SV_STEPS.indexOf(s); const n = rows.length;
     const segs = SV_STATE.map((c, j) => { const v = svCount(rows, i, c[0]); return v ? `<span class="seg mark${c[2] === 3 ? " dk" : ""}" data-hk="${j}" style="width:${(v / n) * 100}%;background:${c[2] < 0 ? "var(--other)" : CI(c[2])};animation-delay:${j * 60}ms"${tipAttr(tipHtml(s[1] + ": " + c[1], v, n))}>${pct(v, n) >= 9 ? pct(v, n) + "%" : ""}</span>` : ""; }).join("");
     return `<div class="stk-row"><span class="lbl">${icon(s[2])}<span>${esc(s[1])}</span></span><div class="stk-bar">${segs}</div><span class="n">${svCount(rows, i, "D")} of ${n} done</span></div>`; }).join("");
   return card(id, title, `<span>${esc(sub)}</span>`, `<div class="chart-in">${legend}<div class="stk">${body}</div></div>`, { wide: true, k: o.k, ic: "layers" });
@@ -1027,7 +1027,7 @@ function svTagBars(id, title, meta, defs, rows, den, o) {
 
 function svOver(recs) {
   const rows = svRows(recs), n = rows.length;
-  const done = SV_STEPS.map((s, i) => ({ label: s[1], v: svCount(rows, i, "D"), vt: svCount(rows, i, "D") + " · " + pct(svCount(rows, i, "D"), n) + "%", tip: svNote(svCount(rows, i, "D"), n) + " done at the camp" }));
+  const done = SV_STEPS.map((s, i) => ({ label: s[1], v: svCount(rows, i, "D"), vt: svCount(rows, i, "D") + " · " + pct(svCount(rows, i, "D"), n) + "%", tip: svNote(svCount(rows, i, "D"), n) + " done at the camp" })).slice(1);
   const bars = timeBars("sv_done", "Services delivered at the camp", `<span>${n} records. Share ticked "Done at the camp" for each step</span>`, done, { k: "var(--c1)", ic: "check", empty: svEmpty() });
   const stk = svStacked("sv_stack", "How each step was recorded", `Every step for ${n} records: done, not done, both boxes, crossed out or left blank`, rows, { k: "var(--c3)" });
   const at = rows.filter((s) => s.st[8] === "D" || s.st[8] === "B");
@@ -1043,7 +1043,7 @@ function svSite(recs) {
   const rows = svRows(recs); const sites = [...new Set(S.svc.filter((s) => !s.dup).map((s) => s.site))];
   const by = {}; sites.forEach((k) => (by[k] = rows.filter((s) => s.site === k)));
   const head = `<tr><th>Step</th>${sites.map((k) => `<th>${esc(k)} (${by[k].length})</th>`).join("")}<th>All sites (${rows.length})</th></tr>`;
-  const body = SV_STEPS.map((s, i) => `<tr><th scope="row">${icon(s[2], "oi")}${esc(s[1])}</th>${sites.map((k) => `<td>${by[k].length ? svNote(svCount(by[k], i, "D"), by[k].length) : "·"}</td>`).join("")}<td>${rows.length ? svNote(svCount(rows, i, "D"), rows.length) : "·"}</td></tr>`).join("");
+  const body = SV_STEPS.map((s, i) => i === 0 ? "" : `<tr><th scope="row">${icon(s[2], "oi")}${esc(s[1])}</th>${sites.map((k) => `<td>${by[k].length ? svNote(svCount(by[k], i, "D"), by[k].length) : "·"}</td>`).join("")}<td>${rows.length ? svNote(svCount(rows, i, "D"), rows.length) : "·"}</td></tr>`).join("");
   const tbl = card("sv_sitetbl", "Services done at the camp, by site", `<span>Number and share of records with the step ticked "Done at the camp"</span>`, `<div class="tblwrap"><table class="lbt"><thead>${head}</thead><tbody>${body}</tbody></table></div>`, { wide: true, k: "var(--c1)", ic: "pin" });
   const cards = sites.map((k, i) => svStacked("sv_site_" + i, k + " camp", `${by[k].length} records`, by[k], { k: CI(i + 2) }));
   const link = sites.map((k) => ({ label: k, v: by[k].filter((s) => s.id).length, vt: svNote(by[k].filter((s) => s.id).length, by[k].length), tip: svNote(by[k].filter((s) => s.id).length, by[k].length) + " linked to a survey interview" }));
@@ -1082,7 +1082,7 @@ function svDq() {
   return [pie, tbl, note];
 }
 function svTabs(tab, recs) {
-  switch (tab) { case "sv_dev": return svDev(recs); case "sv_over": return svOver(recs); case "sv_site": return svSite(recs); case "sv_link": return svLink(recs); case "sv_dq": return svDq(); }
+  switch (tab) { case "sv_dev": return svDev(recs); case "sv_over": return svOver(recs); case "sv_site": return svSite(recs); case "sv_link": return svLink(recs); }
   return [];
 }
 
