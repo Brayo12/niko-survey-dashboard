@@ -975,6 +975,8 @@ const LEVELS = [["resp", "Respondent data", "users"], ["field", "Fieldwork and i
 const levelsHtml = () => LEVELS.map((l) => `<button type="button" class="lvl" role="tab" aria-selected="${S.level === l[0]}" data-level="${l[0]}">${icon(l[2])}<span>${l[1]}</span></button>`).join("");
 document.addEventListener("click", (e) => { const b = e.target.closest("[data-level]"); if (!b || b.dataset.level === S.level) return; S.level = b.dataset.level; S.tab = tabsFor()[0][0]; renderAll(); });
 /* ---------- Services at the camp (triage slips linked to survey interviews) ---------- */
+const SV_SITES = ["Ombeyi", "Muhoroni", "Songoh"];
+const svSites = (list) => SV_SITES.concat([...new Set(list)].filter((k) => !SV_SITES.includes(k)));
 const SV_STEPS = [["s1", "Registration documents", "file"], ["s2", "Verification", "check"], ["s3", "eCitizen registration", "idcard"], ["s4", "Support needs assessment", "heart"], ["s5", "Medical assessment", "health"], ["s6", "Education placement", "school"], ["s7", "Disability registration", "clipboard"], ["s8", "Disability certification", "certificate"], ["s9", "Assistive technology service", "wheelchair"], ["s10", "Exit", "door"]];
 const SV_STATE = [["D", "Done at the camp", 0], ["N", "Not done at the camp", 3], ["B", "Both boxes ticked", 2], ["X", "Crossed out", 5], ["-", "Not marked", -1]];
 const SV_TAGS = { diapers: "Diapers", sanitary: "Sanitary pads or towels", therapy: "Therapy (physio, OT, speech)", nutrition: "Nutrition review", wheelchair: "Wheelchair", spectacles: "Spectacles or refraction", homecare: "Home-based care advice", drugs: "Medicine given" };
@@ -1002,7 +1004,7 @@ const svEmpty = () => S.svc.length ? "No service records for the current filters
 
 function kpisSvc(recs) {
   const rows = svRows(recs), n = rows.length, linked = rows.filter((s) => s.id).length;
-  const sites = {}; rows.forEach((s) => (sites[s.site] = (sites[s.site] || 0) + 1));
+  const sites = {}; SV_SITES.forEach((k) => (sites[k] = 0)); rows.forEach((s) => (sites[s.site] = (sites[s.site] || 0) + 1));
   const siteTxt = Object.keys(sites).map((k) => k + " " + sites[k]).join(", ") || "no records";
   const exit = svCount(rows, 9, "D") + svCount(rows, 9, "B");
   const d = (i) => svCount(rows, i, "D");
@@ -1040,7 +1042,7 @@ function svOver(recs) {
 }
 
 function svSite(recs) {
-  const rows = svRows(recs); const sites = [...new Set(S.svc.filter((s) => !s.dup).map((s) => s.site))];
+  const rows = svRows(recs); const sites = svSites(S.svc.filter((s) => !s.dup).map((s) => s.site));
   const by = {}; sites.forEach((k) => (by[k] = rows.filter((s) => s.site === k)));
   const head = `<tr><th>Step</th>${sites.map((k) => `<th>${esc(k)} (${by[k].length})</th>`).join("")}<th>All sites (${rows.length})</th></tr>`;
   const body = SV_STEPS.map((s, i) => i === 0 ? "" : `<tr><th scope="row">${icon(s[2], "oi")}${esc(s[1])}</th>${sites.map((k) => `<td>${by[k].length ? svNote(svCount(by[k], i, "D"), by[k].length) : "·"}</td>`).join("")}<td>${rows.length ? svNote(svCount(rows, i, "D"), rows.length) : "·"}</td></tr>`).join("");
@@ -1107,7 +1109,7 @@ function svDev(recs) {
   if (!S.dev.length) return [card("dv_none", "Therapy and devices", "<span>From the NCPWD and APDK registers</span>", `<div class="empty">No register data loaded. Publish devices.csv next to this page.</div>`, { wide: true, ic: "wheelchair" })];
   const items = DV_ITEMS.map((d) => ({ label: d[1], ic: d[2], v: rows.filter((r) => r.f.includes(d[0])).length })).filter((x) => x.v).sort((a, b) => b.v - a.v).map((x) => ({ label: x.label, ic: x.ic, v: x.v, vt: x.v + " · " + pct(x.v, n) + "%", tip: svNote(x.v, n) }));
   const bars = timeBars("dv_items", "What each child received or was assessed for", `<span>${n} children in the outreach and issuance registers. A child can appear in several lists, so shares add to more than 100%</span>`, items, { k: "var(--c1)", ic: "heart", wide: true, empty: "No register records for the current filters." });
-  const sites = [...new Set(S.dev.map((r) => r.site))];
+  const sites = svSites(S.dev.map((r) => r.site));
   const head = `<tr><th>Service</th>${sites.map((k) => `<th class="num">${esc(k)}</th>`).join("")}<th class="num">All</th></tr>`;
   const body = DV_ITEMS.map((d) => `<tr><th scope="row">${esc(d[1])}</th>${sites.map((k) => { const g = rows.filter((r) => r.site === k), c = g.filter((r) => r.f.includes(d[0])).length; return `<td class="num">${c} of ${g.length} (${pct(c, g.length)}%)</td>`; }).join("")}<td class="num">${rows.filter((r) => r.f.includes(d[0])).length} of ${n} (${pct(rows.filter((r) => r.f.includes(d[0])).length, n)}%)</td></tr>`).join("");
   const tbl = card("dv_site", "Register services by camp site", `<span>Number and share of the children listed at each site</span>`, `<div class="tblwrap"><table class="lbt"><thead>${head}</thead><tbody>${body}</tbody></table></div>`, { wide: true, k: "var(--c3)", ic: "pin" });
