@@ -1,5 +1,4 @@
-<meta charset="utf-8">
-<title>NIKO Caregiver and Child Assessment</title>
+<meta charset="utf-8"><title>NIKO Caregiver and Child Assessment</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
@@ -299,6 +298,21 @@ dialog input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; 
 .heat td.tot { background: transparent; color: var(--ink-3); }
 .fl { display: inline-block; margin: 1px 3px 1px 0; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: color-mix(in srgb, var(--c2) 16%, var(--surface)); color: var(--ink); }
 .sc-sum { margin: 2px 0 10px; font-size: 13px; line-height: 1.5; color: var(--ink2, var(--ink)); }
+
+/* chart export */
+.xp { position: absolute; top: 10px; right: 10px; z-index: 5; }
+.xp-b { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-3); cursor: pointer; opacity: .55; transition: opacity .15s, color .15s; }
+.card:hover .xp-b, .xp-b:focus-visible { opacity: 1; color: var(--ink); }
+.xp-m { position: absolute; right: 0; top: 34px; min-width: 200px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-hi); padding: 4px; }
+.xp-m[hidden] { display: none; }
+.xp-m button { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 0; background: none; color: var(--ink); font: inherit; font-size: 13px; border-radius: 6px; cursor: pointer; }
+.xp-m button:hover { background: var(--bar-soft, rgba(0,0,0,.06)); }
+.xp-shoot .xp { display: none; }
+@media print {
+  .xp, #xp-print, .levels, #tabs, .filters, .chips, button.link, [data-act] { display: none !important; }
+  .card { break-inside: avoid; box-shadow: none; animation: none !important; }
+  body { background: #fff; }
+}
 </style>
 
 <div class="band"><div class="band-in">
@@ -536,7 +550,7 @@ const optIc = (label, id) => { const l = String(label || ""); for (const [re, n]
 const badge = (n) => `<span class="hi">${icon(n)}</span>`;
 const ID_ICON = { q23_child_sex: "person", ageband: "clock", cgage: "clock", q39_cert_category: "certificate", q41_cert_disability: "grid", ward: "pin", q25_identified_by: "health", q26_age_identified: "clock", q38_registered_ncpwd: "idcard", q37_has_certificate: "certificate", q43_cert_uses: "certificate", q44a_not_registered_why: "alert", q45_assessment_support: "health", q46_comm_improve: "chat", q27_attending_school: "school", q27_no_school_why: "alert", q28_earc_assessed: "school", q29_school_level: "school", q30_school_type: "school", q31_has_talent: "star", q32_talents: "star", q34_in_sports_group: "star", q47_welfare_clinic: "health", q47_no_clinic_why: "alert", q48_milestones_discussed: "chat", q69_has_at: "wheelchair", q70_1_needs_at: "wheelchair", q70_at_state: "wheelchair", q70_at_have: "wheelchair", q70_2_at_needed: "wheelchair", q71_at_challenges: "alert", q72_at_payer: "wallet", q73_at_cost: "wallet", q74_extra_help: "heart", fn_reg: "funnel", fn_at: "wheelchair", adl_radar: "radar", adl: "walk", env_radar: "radar", env: "mountain", env_imp: "alert", map: "pin", q11_caregiver_sex: "person", q14_relationship: "users", q13_head_of_household: "home", q16_caregiver_attended_school: "book", q17_caregiver_highest_grade: "book", q18_has_phone: "phone", q20_smartphone: "phone", q19_no_phone_why: "phone", main_activity_7d: "briefcase", econ_engaged: "briefcase", econ_activity: "briefcase", gov_programme: "shield", nongov_programme: "shield", reduced_income: "wallet", care_support_needed: "heart", support_group: "users", support_group_type: "users" };
 const ADLIC = { q52_eating: "utensils", q54_washing: "droplet", q55_dressing: "shirt", q56_toilet: "toilet", q57_moving_house: "walk", q58_outside_house: "door", q59_transport: "bus", q60_shopping: "bag", q61_water: "droplet", q63_education_access: "school", q65_communicating: "chat", q66_caring_family: "heart", q68_community: "users", env_transport: "bus", env_natural: "mountain", env_info: "info", env_att_home: "home", env_att_school: "school", env_att_community: "users" };
-const TABICON = { overview: "dash", disability: "idcard", edu: "school", at: "wheelchair", adl: "walk", env: "mountain", care: "users", time: "clock", fo_over: "activity", fo_int: "users", fo_dq: "shield", sv_over: "clipboard", sv_site: "pin", sv_link: "users", sv_dq: "shield" };
+const TABICON = { overview: "dash", disability: "idcard", edu: "school", at: "wheelchair", adl: "walk", env: "mountain", care: "users", time: "clock", fo_over: "activity", fo_int: "users", fo_dq: "shield", sv_over: "clipboard", sv_site: "pin", sv_link: "users", sv_dev: "wheelchair", sv_dq: "shield" };
 
 /* ---------- visual helpers ---------- */
 const CI = (i) => (typeof i === "string" ? i : i < 0 ? "var(--other)" : `var(--c${(i % 6) + 1})`);
@@ -744,7 +758,7 @@ function bindTimeline() {
 /* ---------- tabs ---------- */
 const TABS_R = [["overview", "Overview"], ["disability", "Disability and registration"], ["edu", "Education, talent and health"], ["at", "Assistive technology"], ["adl", "Daily activities"], ["env", "Environment"], ["care", "Caregivers"]];
 const TABS_F = [["fo_over", "Fieldwork overview"], ["fo_int", "Interviewers"], ["time", "Interview time"], ["fo_dq", "Data quality"]];
-const TABS_S = [["sv_over", "Services overview"], ["sv_site", "By camp site"], ["sv_link", "Linked to the survey"], ["sv_dq", "Matching and notes"]];
+const TABS_S = [["sv_over", "Services overview"], ["sv_site", "By camp site"], ["sv_link", "Linked to the survey"], ["sv_dev", "Therapy and devices"], ["sv_dq", "Matching and notes"]];
 const tabsFor = () => (S.level === "field" ? TABS_F : S.level === "svc" ? TABS_S : TABS_R);
 function binaryFunnel(recs) {
   const n = recs.length; const reg = recs.filter((r) => r.q38_registered_ncpwd === "yes"); const cert = reg.filter((r) => r.q37_has_certificate === "yes");
@@ -864,7 +878,7 @@ document.addEventListener("click", (e) => {
   S.filt[k] = S.filt[k] === v ? "" : v; if (k === "sub") { S.filt.ward = ""; fillWards(); }
   $("#f-" + k).value = S.filt[k]; hideTip(); renderAll();
 });
-function bindViz() { bindTimeline(); countUp(); document.querySelectorAll(".grid > .card, .kpis > .kpi").forEach((c, i) => c.style.setProperty("--i", i)); }
+function bindViz() { addExports(); bindTimeline(); countUp(); document.querySelectorAll(".grid > .card, .kpis > .kpi").forEach((c, i) => c.style.setProperty("--i", i)); }
 function chipsRow() {
   const names = { enum: (v) => lab("enumerator", v), sub: (v) => lab("sub_county", v), ward: (v) => lab("ward", v), sex: (v) => lab("sex", v), age: (v) => (AGEBANDS.find((b) => b[0] === v) || [0, v])[1], from: (v) => "from " + v, to: (v) => "to " + v };
   const on = Object.keys(S.filt).filter((k) => S.filt[k]);
@@ -1068,9 +1082,100 @@ function svDq() {
   return [pie, tbl, note];
 }
 function svTabs(tab, recs) {
-  switch (tab) { case "sv_over": return svOver(recs); case "sv_site": return svSite(recs); case "sv_link": return svLink(recs); case "sv_dq": return svDq(); }
+  switch (tab) { case "sv_dev": return svDev(recs); case "sv_over": return svOver(recs); case "sv_site": return svSite(recs); case "sv_link": return svLink(recs); case "sv_dq": return svDq(); }
   return [];
 }
+
+/* ---- therapy, nutrition and device registers (devices.csv) ---- */
+S.dev = [];
+const DV_ITEMS = [["T", "Therapy session (physio or OT)", "activity"], ["N", "Nutrition therapy", "heart"], ["C", "Diapers or sanitary supplies issued", "info"], ["W", "Wheelchair assessed or recommended", "wheelchair"], ["A", "Walking aid assessed or recommended", "walk"], ["O", "Orthosis, prosthesis, splint or shoe raise", "health"], ["H", "Hearing aid recommended", "info"], ["V", "White cane recommended", "info"]];
+async function loadDev() {
+  try {
+    const res = await fetch("devices.csv", { cache: "no-store" }); if (!res.ok) return;
+    const wb = XLSX.read(await res.arrayBuffer(), { type: "array", raw: true });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: false });
+    S.dev = rows.map((r) => ({ site: String(r.site), date: String(r.date), id: String(r.survey_id || ""), conf: String(r.match || ""), f: DV_ITEMS.filter((d) => String(r[d[0]]) === "1").map((d) => d[0]) }));
+  } catch (e) { S.dev = []; }
+}
+function devRows(recs) {
+  if (!svActive()) return S.dev;
+  const ids = new Set((recs || filtered()).map((r) => String(r.id)));
+  return S.dev.filter((s) => s.id && ids.has(s.id));
+}
+function svDev(recs) {
+  const rows = devRows(recs), n = rows.length;
+  if (!S.dev.length) return [card("dv_none", "Therapy and devices", "<span>From the NCPWD and APDK registers</span>", `<div class="empty">No register data loaded. Publish devices.csv next to this page.</div>`, { wide: true, ic: "wheelchair" })];
+  const items = DV_ITEMS.map((d) => ({ label: d[1], ic: d[2], v: rows.filter((r) => r.f.includes(d[0])).length })).filter((x) => x.v).sort((a, b) => b.v - a.v).map((x) => ({ label: x.label, ic: x.ic, v: x.v, vt: x.v + " · " + pct(x.v, n) + "%", tip: svNote(x.v, n) }));
+  const bars = timeBars("dv_items", "What each child received or was assessed for", `<span>${n} children in the outreach and issuance registers. A child can appear in several lists, so shares add to more than 100%</span>`, items, { k: "var(--c1)", ic: "heart", wide: true, empty: "No register records for the current filters." });
+  const sites = [...new Set(S.dev.map((r) => r.site))];
+  const head = `<tr><th>Service</th>${sites.map((k) => `<th class="num">${esc(k)}</th>`).join("")}<th class="num">All</th></tr>`;
+  const body = DV_ITEMS.map((d) => `<tr><th scope="row">${esc(d[1])}</th>${sites.map((k) => { const g = rows.filter((r) => r.site === k), c = g.filter((r) => r.f.includes(d[0])).length; return `<td class="num">${c} of ${g.length} (${pct(c, g.length)}%)</td>`; }).join("")}<td class="num">${rows.filter((r) => r.f.includes(d[0])).length} of ${n} (${pct(rows.filter((r) => r.f.includes(d[0])).length, n)}%)</td></tr>`).join("");
+  const tbl = card("dv_site", "Register services by camp site", `<span>Number and share of the children listed at each site</span>`, `<div class="tblwrap"><table class="lbt"><thead>${head}</thead><tbody>${body}</tbody></table></div>`, { wide: true, k: "var(--c3)", ic: "pin" });
+  const linked = rows.filter((r) => r.id).length;
+  const note = card("dv_notes", "About these registers", `<span>Read before quoting the numbers</span>`, `<div class="empty" style="text-align:left;line-height:1.6">Built from the daily outreach forms (assessment and intervention), the NCPWD therapy lists and the NCPWD issuance registers for 14 to 16 October. ${linked} of ${n} children (${pct(linked, n)}%) were linked to a survey interview by registration number and day, or by name. Wheelchair, walking aid, orthosis and hearing items are what the therapist wrote as the intervention, not proof the item was handed over. A separate issuance register shows 4 devices issued (2 white canes, 2 axillary crutches) and 1 marked not issued. Muhoroni on 15 October has no registration numbers, so those children were linked by name only. Names, ID numbers, phone numbers and diagnoses are not loaded here.</div>`, { wide: true, k: "var(--c5)", ic: "info" });
+  return [bars, tbl, note];
+}
+
+/* ---- chart export: PNG image, CSV data, print to PDF ---- */
+const XP_SLUG = (s) => String(s || "chart").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "chart";
+const XP_CSV = (v) => { v = String(v == null ? "" : v).replace(/\s+/g, " ").trim(); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+function xpSave(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+function xpRows(card) {
+  const t = card.querySelector("table");
+  if (t) return [...t.querySelectorAll("tr")].map((tr) => [...tr.children].map((c) => c.textContent));
+  const rows = [...card.querySelectorAll(".rows .row")];
+  if (rows.length) return [["Item", "Value"]].concat(rows.map((r) => [r.querySelector(".l")?.textContent, r.querySelector(".v")?.textContent]));
+  const tips = [...card.querySelectorAll("[data-tip]")], seen = new Set(), out = [["Item", "Detail"]];
+  tips.forEach((e) => { const d = document.createElement("div"); d.innerHTML = e.getAttribute("data-tip"); const k = (d.querySelector("b")?.textContent || "") + "|" + (d.querySelector("span")?.textContent || ""); if (!seen.has(k)) { seen.add(k); out.push([d.querySelector("b")?.textContent || "", d.querySelector("span")?.textContent || ""]); } });
+  return out.length > 1 ? out : null;
+}
+function xpCsv(card) {
+  const r = xpRows(card); if (!r) { alert("This chart has no table data to export. Use the image option."); return; }
+  const title = card.querySelector("h3")?.textContent || "chart";
+  xpSave(new Blob(["﻿" + r.map((x) => x.map(XP_CSV).join(",")).join("\n")], { type: "text/csv;charset=utf-8" }), XP_SLUG(title) + ".csv");
+}
+function xpInline(src, dst) {
+  const cs = getComputedStyle(src); let css = "";
+  for (let i = 0; i < cs.length; i++) { const p = cs[i]; css += p + ":" + cs.getPropertyValue(p) + ";"; }
+  dst.setAttribute("style", css + "animation:none;transition:none;");
+  for (let i = 0; i < src.children.length; i++) xpInline(src.children[i], dst.children[i]);
+}
+async function xpPng(card, btn) {
+  const title = card.querySelector("h3")?.textContent || "chart";
+  btn.disabled = true;
+  try {
+    const w = Math.ceil(card.offsetWidth), h = Math.ceil(card.offsetHeight), sc = 2;
+    const clone = card.cloneNode(true); xpInline(card, clone);
+    clone.querySelectorAll(".xp").forEach((e) => e.remove());
+    clone.style.margin = "0"; clone.style.opacity = "1"; clone.style.transform = "none"; clone.style.width = w + "px"; clone.style.height = h + "px"; clone.style.boxSizing = "border-box";
+    const bg = getComputedStyle(document.body).backgroundColor;
+    const wrap = document.createElement("div"); wrap.setAttribute("xmlns", "http://www.w3.org/1999/xhtml"); wrap.style.cssText = `width:${w}px;height:${h}px;background:${bg};`; wrap.appendChild(clone);
+    const xml = new XMLSerializer().serializeToString(wrap);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><foreignObject width="100%" height="100%">${xml}</foreignObject></svg>`;
+    const img = new Image();
+    await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg); });
+    const c = document.createElement("canvas"); c.width = w * sc; c.height = h * sc;
+    const g = c.getContext("2d"); g.scale(sc, sc); g.fillStyle = bg; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+    await new Promise((ok, no) => c.toBlob((bl) => { if (!bl) return no(); xpSave(bl, XP_SLUG(title) + ".png"); ok(); }, "image/png"));
+  } catch (e) { alert("Could not make the image in this browser. Use the CSV or print option instead."); }
+  btn.disabled = false;
+}
+function addExports() {
+  document.querySelectorAll(".grid > .card.chart").forEach((card) => {
+    if (card.querySelector(".xp")) return;
+    const w = document.createElement("div"); w.className = "xp";
+    w.innerHTML = `<button type="button" class="xp-b" aria-haspopup="true" aria-label="Export this chart" title="Export this chart"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/></svg></button><div class="xp-m" role="menu" hidden><button type="button" role="menuitem" data-x="png">Download image (PNG)</button><button type="button" role="menuitem" data-x="csv">Download data (CSV)</button></div>`;
+    card.appendChild(w);
+  });
+  const cnt = document.querySelector("#chips");
+  if (cnt && !document.querySelector("#xp-print")) { const b = document.createElement("button"); b.id = "xp-print"; b.type = "button"; b.className = "link"; b.textContent = "Print or save page as PDF"; b.onclick = () => window.print(); cnt.parentNode.insertBefore(b, cnt.nextSibling); }
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".xp-b"), it = e.target.closest(".xp-m button");
+  document.querySelectorAll(".xp-m").forEach((m) => { if (!b || m.parentNode !== b.parentNode) m.hidden = true; });
+  if (b) { const m = b.parentNode.querySelector(".xp-m"); m.hidden = !m.hidden; return; }
+  if (it) { const card = it.closest(".card"); it.closest(".xp-m").hidden = true; if (it.dataset.x === "csv") xpCsv(card); else xpPng(card, it); }
+});
 
 /* ---------- rendering ---------- */
 function renderAll() {
@@ -1179,7 +1284,7 @@ $("#theme").addEventListener("click", () => { const dark = document.documentElem
 /* start: look for a data.csv published next to the page, else start empty */
 (async () => {
   try {
-    await loadSvc(); const res = await fetch("data.csv", { cache: "no-store" });
+    await loadSvc(); await loadDev(); const res = await fetch("data.csv", { cache: "no-store" });
     if (res.ok) { const buf = await res.arrayBuffer(); const wb = XLSX.read(buf, { type: "array", cellDates: true }); const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true }); if (rows.length) { ingest(rows, "data.csv (" + rows.length + " rows)", false); return; } }
   } catch (e) { /* no published data */ }
   ingest([], "No data loaded yet. Connect to Inform or load an export file.", true);

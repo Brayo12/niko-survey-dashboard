@@ -4,3 +4,4 @@
 *.csv
 !data.csv
 !services.csv
+!devices.csv
